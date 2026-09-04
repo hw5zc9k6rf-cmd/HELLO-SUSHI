@@ -169,6 +169,8 @@ export const db = {
     return rowToOrder(data);
   },
   updateOrderStatus: (id, status) => run(supabase.from("orders").update({ status }).eq("id", id)),
+  deleteOrder: (id) => run(supabase.from("orders").delete().eq("id", id)),
+  deleteOrders: (ids) => (ids.length ? run(supabase.from("orders").delete().in("id", ids)) : Promise.resolve()),
 
   createReservation: (res) => run(supabase.from("reservations").insert(resToRow(res))),
   updateReservation: (id, status) => run(supabase.from("reservations").update({ status }).eq("id", id)),

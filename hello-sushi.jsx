@@ -801,6 +801,17 @@ export default function App() {
   function cancelOrder(orderId) {
     setOrderStatus(orderId, "Cancelled");
   }
+  function deleteOrder(orderId) {
+    setOrders((os) => os.filter((o) => o.id !== orderId));
+    db.deleteOrder(orderId).catch(dbFail);
+  }
+  async function clearOrders(statuses) {
+    const ids = orders.filter((o) => statuses.includes(o.status)).map((o) => o.id);
+    if (!ids.length) return 0;
+    setOrders((os) => os.filter((o) => !ids.includes(o.id)));
+    try { await db.deleteOrders(ids); } catch (e) { dbFail(e); }
+    return ids.length;
+  }
   function toggleSoldOut(itemId) {
     const it = menuItemsState.find((i) => i.id === itemId);
     if (!it) return;
@@ -929,6 +940,8 @@ export default function App() {
           advanceStatus={advanceStatus}
           setOrderStatus={setOrderStatus}
           cancelOrder={cancelOrder}
+          deleteOrder={deleteOrder}
+          clearOrders={clearOrders}
           staffToast={staffToast}
           menuItems={menuItemsState}
           categories={categoriesState}
@@ -2477,7 +2490,7 @@ function AdminApp(props) {
       <>
       {staffTab === "overview" && <OverviewTab {...props} />}
       {staffTab === "kitchen" && <KitchenTab orders={props.orders} advanceStatus={props.advanceStatus} cancelOrder={props.cancelOrder} />}
-      {staffTab === "orders" && <OrdersTab orders={props.orders} advanceStatus={props.advanceStatus} setOrderStatus={props.setOrderStatus} cancelOrder={props.cancelOrder} settings={settings} />}
+      {staffTab === "orders" && <OrdersTab orders={props.orders} advanceStatus={props.advanceStatus} setOrderStatus={props.setOrderStatus} cancelOrder={props.cancelOrder} deleteOrder={props.deleteOrder} clearOrders={props.clearOrders} settings={settings} />}
       {staffTab === "reservations" && <ReservationsTab reservations={props.reservations} updateReservation={props.updateReservation} />}
       {staffTab === "menu" && <MenuManageTab menuItems={props.menuItems} categories={props.categories} toggleSoldOut={props.toggleSoldOut} saveMenuItem={props.saveMenuItem} deleteMenuItem={props.deleteMenuItem} />}
       {staffTab === "categories" && <CategoriesTab categories={props.categories} saveCategory={props.saveCategory} deleteCategory={props.deleteCategory} moveCategory={props.moveCategory} menuItems={props.menuItems} />}
@@ -2626,11 +2639,19 @@ function OrderTicket({ order, advanceStatus, cancelOrder }) {
   );
 }
 
-function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, settings }) {
+function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteOrder, clearOrders, settings }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [q, setQ] = useState("");
   const [detail, setDetail] = useState(null);
   const [receipt, setReceipt] = useState(null);
+
+  const doneCount = orders.filter((o) => o.status === "Completed" || o.status === "Cancelled").length;
+  function clearHistory() {
+    if (!doneCount) return;
+    if (window.confirm(`Permanently delete ${doneCount} completed & cancelled order${doneCount === 1 ? "" : "s"}? Active orders are kept. This can't be undone.`)) {
+      clearOrders(["Completed", "Cancelled"]);
+    }
+  }
 
   const filtered = orders
     .filter((o) => (statusFilter === "All" ? true : o.status === statusFilter))
@@ -2644,11 +2665,20 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, setting
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search order #, name, phone" style={{ ...adminInput, maxWidth: 260 }} />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...adminInput, maxWidth: 170 }}>
           {["All", ...STAFF_STATUSES, "Cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <span style={{ flex: 1 }} />
+        <button
+          className="sn-btn"
+          onClick={clearHistory}
+          disabled={!doneCount}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: doneCount ? "#F0A5A8" : "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 9, padding: "9px 14px", fontSize: 12, fontWeight: 700 }}
+        >
+          <Trash2 size={13} /> Clear history{doneCount ? ` (${doneCount})` : ""}
+        </button>
       </div>
 
       <div style={{ background: "var(--charcoal-2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden" }}>
@@ -2725,6 +2755,18 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, setting
                 <button className="sn-btn" onClick={() => cancelOrder(detailOrder.id)} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 9, padding: "10px 14px", fontSize: 12, fontWeight: 700 }}>Cancel</button>
               )}
             </div>
+            <button
+              className="sn-btn"
+              onClick={() => {
+                if (window.confirm(`Permanently delete order ${detailOrder.orderNumber}? This can't be undone.`)) {
+                  deleteOrder(detailOrder.id);
+                  setDetail(null);
+                }
+              }}
+              style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid rgba(240,165,168,0.4)", color: "#F0A5A8", borderRadius: 9, padding: "9px", fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              <Trash2 size={12} /> Delete order
+            </button>
           </div>
         </div>
       )}
