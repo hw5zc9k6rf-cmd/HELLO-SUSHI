@@ -237,6 +237,7 @@ const DEFAULT_SETTINGS = {
   tableCount: 10,
   siteUrl: "",
   qrOrderingOnly: true, // ordering is disabled unless the guest scanned a table QR
+  adminIdleMinutes: 20, // auto-sign-out staff after this many minutes idle
   soundAlerts: true, // play a chime in the admin dashboard when a new order arrives
   preorderEnabled: true, // let customers schedule an order for a later time
   preorderMaxDays: 7,    // how many days ahead a pre-order can be placed
@@ -811,6 +812,24 @@ export default function App() {
     const { data } = auth.onChange(setSession);
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // ---- idle auto-logout for staff (kitchen iPad left unattended) ----
+  useEffect(() => {
+    if (!adminAuthed) return;
+    const mins = Math.max(2, Math.min(240, Number(settings.adminIdleMinutes) || 20));
+    const limit = mins * 60000;
+    let last = Date.now();
+    const bump = () => { last = Date.now(); };
+    const evs = ["pointerdown", "keydown", "wheel", "touchstart", "visibilitychange"];
+    evs.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    const id = setInterval(() => {
+      if (Date.now() - last > limit) {
+        auth.signOut();
+        window.alert("Signed out after " + mins + " minutes of inactivity.");
+      }
+    }, 30000);
+    return () => { clearInterval(id); evs.forEach((e) => window.removeEventListener(e, bump)); };
+  }, [adminAuthed, settings.adminIdleMinutes]);
 
   // ---- new-order alert: chime + desktop notification + toast ----
   useEffect(() => {
@@ -3883,6 +3902,7 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
       taxRate: (Number(f.taxPct) || 0) / 100,
       deliveryFee: Number(f.deliveryFee) || 0,
       tableCount: Math.max(1, Math.min(60, Number(f.tableCount) || 10)),
+      adminIdleMinutes: Math.max(2, Math.min(240, Number(f.adminIdleMinutes) || 20)),
       preorderMaxDays: Math.max(1, Math.min(60, Number(f.preorderMaxDays) || 7)),
       paymentMethods: paymentMethods.length ? paymentMethods : DEFAULT_SETTINGS.paymentMethods,
     });
@@ -3923,6 +3943,10 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
         <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "8px 0 0" }}>
           On: guests who open the site without scanning a table QR (<code>?table=NN</code>) can browse the menu but can't add to cart or check out. Off: anyone can order online.
         </p>
+        <div style={{ maxWidth: 220, marginTop: 12 }}>
+          <p style={L}>Auto sign-out staff after (minutes idle)</p>
+          <input type="number" min="2" max="240" value={f.adminIdleMinutes ?? 20} onChange={(e) => set("adminIdleMinutes", e.target.value)} style={adminInput} />
+        </div>
       </div>
 
       <div style={{ ...cardStyle, marginTop: 14 }}>
