@@ -176,6 +176,8 @@ export const db = {
 
   createReservation: (res) => run(supabase.from("reservations").insert(resToRow(res))),
   updateReservation: (id, status) => run(supabase.from("reservations").update({ status }).eq("id", id)),
+  deleteReservation: (id) => run(supabase.from("reservations").delete().eq("id", id)),
+  deleteReservations: (ids) => (ids.length ? run(supabase.from("reservations").delete().in("id", ids)) : Promise.resolve()),
 
   saveContent: (data) => run(supabase.from("content").upsert({ id: "default", data })),
   saveSettings: (data) => run(supabase.from("settings").upsert({ id: "default", data })),

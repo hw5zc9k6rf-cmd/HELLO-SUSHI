@@ -942,6 +942,17 @@ export default function App() {
     setReservations((r) => r.map((x) => (x.id === id ? { ...x, status } : x)));
     db.updateReservation(id, status).catch(dbFail);
   }
+  function deleteReservation(id) {
+    setReservations((r) => r.filter((x) => x.id !== id));
+    db.deleteReservation(id).catch(dbFail);
+  }
+  async function clearReservations(statuses) {
+    const ids = reservations.filter((r) => statuses.includes(r.status)).map((r) => r.id);
+    if (!ids.length) return 0;
+    setReservations((rs) => rs.filter((r) => !ids.includes(r.id)));
+    try { await db.deleteReservations(ids); } catch (e) { dbFail(e); }
+    return ids.length;
+  }
   function saveContent(next) {
     setContent(next);
     db.saveContent(next).catch(dbFail);
@@ -1038,6 +1049,8 @@ export default function App() {
           deleteCategory={deleteCategory}
           moveCategory={moveCategory}
           updateReservation={updateReservation}
+          deleteReservation={deleteReservation}
+          clearReservations={clearReservations}
           seedDatabase={seedDatabase}
           dbReady={catalogSource === "db"}
           adminEmail={session?.user?.email || ""}
@@ -2697,7 +2710,7 @@ function AdminApp(props) {
       {staffTab === "overview" && <OverviewTab {...props} />}
       {staffTab === "kitchen" && <KitchenTab orders={props.orders} advanceStatus={props.advanceStatus} cancelOrder={props.cancelOrder} />}
       {staffTab === "orders" && <OrdersTab orders={props.orders} advanceStatus={props.advanceStatus} setOrderStatus={props.setOrderStatus} cancelOrder={props.cancelOrder} deleteOrder={props.deleteOrder} clearOrders={props.clearOrders} settings={settings} />}
-      {staffTab === "reservations" && <ReservationsTab reservations={props.reservations} updateReservation={props.updateReservation} />}
+      {staffTab === "reservations" && <ReservationsTab reservations={props.reservations} updateReservation={props.updateReservation} deleteReservation={props.deleteReservation} clearReservations={props.clearReservations} />}
       {staffTab === "menu" && <MenuManageTab menuItems={props.menuItems} categories={props.categories} toggleSoldOut={props.toggleSoldOut} saveMenuItem={props.saveMenuItem} deleteMenuItem={props.deleteMenuItem} />}
       {staffTab === "categories" && <CategoriesTab categories={props.categories} saveCategory={props.saveCategory} deleteCategory={props.deleteCategory} moveCategory={props.moveCategory} menuItems={props.menuItems} />}
       {staffTab === "tables" && <TablesTab orders={props.orders} settings={settings} />}
@@ -3051,10 +3064,22 @@ function ReceiptModal({ order, settings, onClose }) {
   );
 }
 
-function ReservationsTab({ reservations, updateReservation }) {
+function ReservationsTab({ reservations, updateReservation, deleteReservation, clearReservations }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
   const [q, setQ] = useState("");
+
+  const doneStatuses = ["Completed", "Cancelled", "Rejected"];
+  const doneCount = reservations.filter((r) => doneStatuses.includes(r.status)).length;
+  function clearDone() {
+    if (!doneCount) return;
+    if (window.confirm(`Permanently delete ${doneCount} completed, cancelled & rejected reservation${doneCount === 1 ? "" : "s"}? Pending and confirmed bookings are kept. This can't be undone.`)) {
+      clearReservations(doneStatuses);
+    }
+  }
+  function removeOne(r) {
+    if (window.confirm(`Permanently delete the reservation for ${r.name} on ${r.date} ${r.time}? This can't be undone.`)) deleteReservation(r.id);
+  }
 
   const list = reservations
     .filter((r) => (statusFilter === "All" ? true : r.status === statusFilter))
@@ -3073,13 +3098,22 @@ function ReservationsTab({ reservations, updateReservation }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, phone, email" style={{ ...adminInput, maxWidth: 240 }} />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...adminInput, maxWidth: 150 }}>
           {["All", ...RES_STATUSES].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ ...adminInput, maxWidth: 160 }} />
         {dateFilter && <button className="sn-btn" onClick={() => setDateFilter("")} style={{ ...adminInput, maxWidth: 70, cursor: "pointer" }}>Clear</button>}
+        <span style={{ flex: 1 }} />
+        <button
+          className="sn-btn"
+          onClick={clearDone}
+          disabled={!doneCount}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: doneCount ? "#F0A5A8" : "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 9, padding: "9px 14px", fontSize: 12, fontWeight: 700 }}
+        >
+          <Trash2 size={13} /> Clear history{doneCount ? ` (${doneCount})` : ""}
+        </button>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -3102,6 +3136,9 @@ function ReservationsTab({ reservations, updateReservation }) {
                   {label}
                 </button>
               ))}
+              <button className="sn-btn" title="Delete reservation" onClick={() => removeOne(r)} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "6px 8px" }}>
+                <Trash2 size={12} />
+              </button>
             </div>
           </div>
         ))}
