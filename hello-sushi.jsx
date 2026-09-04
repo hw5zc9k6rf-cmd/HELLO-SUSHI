@@ -2656,20 +2656,21 @@ function TrackingScreen({ t, lang, activeOrder, orderLoading, setScreen, setting
  * QR image: put the file at  public/support-qr.png
  * Link (optional): a wa.me / chat link, used for the "Open WhatsApp" button. */
 const SUPPORT_WHATSAPP_URL = "https://wa.me/qr/S33NJSNEVFTXK1";
+const SUPPORT_NAME = "Zam";
 
 function SupportBlock({ dark = true }) {
   const muted = dark ? "rgba(255,255,255,0.55)" : "var(--ink-soft)";
   return (
     <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? "rgba(255,255,255,0.1)" : "var(--line)"}`, textAlign: "center" }}>
-      <p style={{ fontSize: 12, fontWeight: 700, margin: 0, color: dark ? "var(--gold-soft)" : "var(--ink)" }}>Technical support</p>
+      <p style={{ fontSize: 12, fontWeight: 700, margin: 0, color: dark ? "var(--gold-soft)" : "var(--ink)" }}>Technical support — {SUPPORT_NAME}</p>
       <p style={{ fontSize: 11, color: muted, margin: "4px 0 10px", lineHeight: 1.5 }}>
-        Any technical issues, errors or problems? Scan the QR code to reach our technical support team on WhatsApp — we're here to help.
+        Any technical issues, errors or problems? Scan the QR code to reach {SUPPORT_NAME} on WhatsApp — we're here to help.
       </p>
       <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
         <QR text={SUPPORT_WHATSAPP_URL} size={132} />
       </div>
       <div>
-        <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 700, color: "#25D366", textDecoration: "none" }}>Open WhatsApp →</a>
+        <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 700, color: "#25D366", textDecoration: "none" }}>Message {SUPPORT_NAME} on WhatsApp →</a>
       </div>
     </div>
   );
