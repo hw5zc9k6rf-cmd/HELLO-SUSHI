@@ -645,7 +645,22 @@ const CSS = `
 .sn-mono{ font-family:'JetBrains Mono','Menlo',monospace; }
 .sn-btn{ cursor:pointer; border:none; font-family:inherit; }
 .sn-scroll::-webkit-scrollbar{ display:none; }
-.sn-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
+.sn-scroll{ scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch; }
+
+/* --- cross-platform (iOS / iPadOS / Android / desktop) --- */
+html,body{ margin:0; padding:0; }
+body{ background:#161C26; -webkit-text-size-adjust:100%; text-size-adjust:100%; overscroll-behavior-y:none; }
+*{ -webkit-tap-highlight-color:transparent; }
+.sn-root{ overflow-x:hidden; }
+.sn-root img{ max-width:100%; }
+.sn-root input, .sn-root select, .sn-root textarea{ font-size:16px; }        /* stop iOS focus-zoom */
+.sn-admin input, .sn-admin select, .sn-admin textarea{ font-size:12.5px; }   /* keep admin compact */
+@media (min-width:560px){
+  .sn-card:hover{ transform:translateY(-2px); }
+}
+@media (max-width:559px){
+  .sn-card:hover{ transform:none; box-shadow:none; }                          /* no hover lift on touch */
+}
 .sn-pattern{
   background-image:
     repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 16px),
@@ -1016,7 +1031,19 @@ export default function App() {
   }
 
   return (
-    <div className="sn-root" style={{ minHeight: 600, background: mode === "customer" ? "var(--paper-dim)" : "var(--charcoal)", padding: "18px 0 40px", transition: "background 0.2s" }}>
+    <div
+      className={"sn-root" + (mode === "customer" ? " sn-customer" : "")}
+      style={{
+        minHeight: "100dvh",
+        background: mode === "customer"
+          ? "radial-gradient(120% 55% at 50% 0%, #29343F 0%, #161C26 62%)"
+          : "var(--charcoal)",
+        padding: mode === "customer"
+          ? "calc(14px + env(safe-area-inset-top)) 8px calc(34px + env(safe-area-inset-bottom))"
+          : "calc(12px + env(safe-area-inset-top)) 0 calc(30px + env(safe-area-inset-bottom))",
+        transition: "background 0.2s",
+      }}
+    >
       <style>{CSS}</style>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap'); .sn-root{ font-family:'Inter','Noto Sans Myanmar','Noto Sans Thai','Noto Sans SC',system-ui,sans-serif; }`}</style>
@@ -1128,7 +1155,7 @@ function TopBar({ mode, setMode, lang, setLang, t, cart = [], screen = "menu", s
             </button>
           )}
           <button className="sn-btn" aria-label={settings.name} onClick={() => setScreen("home")} style={{ display: "flex", alignItems: "center", background: "transparent", padding: 0 }}>
-            <Logo height={30} />
+            <Logo height={30} chip style={{ padding: "5px 9px", borderRadius: 11 }} />
           </button>
         </div>
       ) : <span />}
@@ -1236,7 +1263,7 @@ function CustomerApp(props) {
   const { screen, tableLocked, t, table } = props;
   const showNav = ["home", "menu", "categories", "about", "contact", "reserve"].includes(screen);
   return (
-    <div style={{ maxWidth: 460, margin: "0 auto", background: "var(--paper)", borderRadius: 22, overflow: "hidden", boxShadow: "0 1px 0 var(--line)", border: "1px solid var(--line)", minHeight: 640, position: "relative" }}>
+    <div style={{ maxWidth: 460, margin: "0 auto", background: "var(--paper)", borderRadius: 24, overflow: "hidden", boxShadow: "0 24px 64px -16px rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.06)", minHeight: 640, position: "relative" }}>
       {showNav && <CustomerNav {...props} />}
       {tableLocked && ["home", "menu", "categories", "cart", "checkout"].includes(screen) && <TableBanner t={t} table={table} />}
       {screen === "home" && <HomeScreen {...props} />}
@@ -1276,7 +1303,7 @@ function Logo({ height = 30, chip = false, style }) {
 
 function AddedToast({ name }) {
   return (
-    <div style={{ position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "#fff", padding: "9px 16px", borderRadius: 999, fontSize: 13, fontWeight: 500, zIndex: 210, animation: "sn-toast-in 0.25s ease", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+    <div style={{ position: "fixed", top: "calc(14px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "#fff", padding: "9px 16px", borderRadius: 999, fontSize: 13, fontWeight: 500, zIndex: 210, animation: "sn-toast-in 0.25s ease", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
       <Check size={14} /> {name}
     </div>
   );
@@ -1674,7 +1701,7 @@ function MenuScreen({ t, lang, table, tableLocked, canOrder = true, menuItems, c
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t.search}
-            style={{ width: "100%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.26)", borderRadius: 10, padding: "11px 12px 11px 34px", color: "#fff", fontSize: 13.5, outline: "none" }}
+            style={{ width: "100%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.26)", borderRadius: 10, padding: "11px 12px 11px 34px", color: "#fff", fontSize: 16, outline: "none" }}
           />
         </div>
       </div>
@@ -1751,7 +1778,7 @@ function MenuScreen({ t, lang, table, tableLocked, canOrder = true, menuItems, c
       <Footer t={t} settings={settings} setScreen={setScreen} />
 
       {cartCount > 0 && (
-        <button className="sn-btn" onClick={() => setScreen("cart")} style={{ position: "sticky", bottom: 14, left: 16, right: 16, width: "calc(100% - 32px)", margin: "0 16px 14px", background: "var(--wine)", color: "#fff", borderRadius: 14, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 6px 18px rgba(183,62,22,0.35)" }}>
+        <button className="sn-btn" onClick={() => setScreen("cart")} style={{ position: "sticky", bottom: "calc(14px + env(safe-area-inset-bottom))", left: 16, right: 16, width: "calc(100% - 32px)", margin: "0 16px calc(14px + env(safe-area-inset-bottom))", background: "var(--wine)", color: "#fff", borderRadius: 14, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 6px 18px rgba(183,62,22,0.35)" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
             <ShoppingCart size={16} /> {cartCount} {t.items}
           </span>
@@ -2095,7 +2122,7 @@ function ItemModal({ item, onClose, onAdd, lang, t, cats, fav, onFav, canOrder =
                   onChange={(e) => setInstructions(e.target.value)}
                   placeholder={t.instructionsPh}
                   rows={2}
-                  style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", fontSize: 13, fontFamily: "inherit", resize: "none", outline: "none" }}
+                  style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", fontSize: 16, fontFamily: "inherit", resize: "none", outline: "none" }}
                 />
               </ModalSection>
 
@@ -2216,7 +2243,7 @@ function CartScreen({ t, lang, table, cart, cartTotals, updateQty, removeLine, c
                 onChange={(e) => setPromoCode(e.target.value)}
                 placeholder={t.promo}
                 disabled={promoApplied}
-                style={{ flex: 1, border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, outline: "none", background: promoApplied ? "var(--paper-dim)" : "#fff" }}
+                style={{ flex: 1, border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", fontSize: 16, outline: "none", background: promoApplied ? "var(--paper-dim)" : "#fff" }}
               />
               <button className="sn-btn" onClick={applyPromo} disabled={promoApplied} style={{ padding: "0 16px", borderRadius: 10, border: "1px solid var(--line)", background: promoApplied ? "var(--herb)" : "#fff", color: promoApplied ? "#fff" : "var(--ink)", fontSize: 12.5, fontWeight: 600 }}>
                 {promoApplied ? t.applied : t.apply}
@@ -2240,7 +2267,7 @@ function CartScreen({ t, lang, table, cart, cartTotals, updateQty, removeLine, c
       </div>
 
       {cart.length > 0 && (
-        <div style={{ padding: "12px 20px 20px", position: "sticky", bottom: 0, background: "linear-gradient(to top, var(--paper) 70%, transparent)" }}>
+        <div style={{ padding: "12px 20px calc(20px + env(safe-area-inset-bottom))", position: "sticky", bottom: 0, background: "linear-gradient(to top, var(--paper) 78%, transparent)" }}>
           <button className="sn-btn" onClick={() => setScreen("checkout")} style={{ width: "100%", background: "var(--wine)", color: "#fff", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700 }}>
             {t.continueCheckout} — {fmt(cartTotals.total)}
           </button>
@@ -2422,7 +2449,7 @@ function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cart
         </div>
       </div>
 
-      <div style={{ padding: "16px 20px 20px" }}>
+      <div style={{ padding: "16px 20px calc(20px + env(safe-area-inset-bottom))" }}>
         {schedInvalid && <p style={{ fontSize: 11.5, color: "var(--wine)", textAlign: "center", margin: "0 0 8px" }}>Pick a pickup date and time.</p>}
         <button className="sn-btn" onClick={placeOrder} disabled={placing || schedInvalid} style={{ width: "100%", background: placing || schedInvalid ? "var(--ink-soft)" : "var(--wine)", color: "#fff", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           {placing ? t.placing : `${checkoutForm.scheduledFor ? t.preorder : t.placeOrder} — ${fmt(cartTotals.total)}`}
@@ -2435,7 +2462,7 @@ function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cart
 function FieldLabel({ children }) {
   return <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-soft)", margin: "16px 0 6px" }}>{children}</p>;
 }
-const inputStyle = { width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", background: "#fff" };
+const inputStyle = { width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "11px 12px", fontSize: 16, outline: "none", fontFamily: "inherit", background: "#fff" };
 
 function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
   if (!activeOrder) return null;
@@ -2642,7 +2669,7 @@ function AdminLogin() {
     if (error) { setErr(error.message || "Sign-in failed."); setBusy(false); }
     // on success the App auth listener swaps this screen for the dashboard
   }
-  const field = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.18)", background: "var(--charcoal-3)", color: "#fff", fontSize: 13, outline: "none", marginTop: 8 };
+  const field = { width: "100%", padding: "12px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.18)", background: "var(--charcoal-3)", color: "#fff", fontSize: 16, outline: "none", marginTop: 8 };
   return (
     <div style={{ maxWidth: 360, margin: "40px auto 0", padding: "0 16px", color: "var(--paper)" }}>
       <div style={{ background: "var(--charcoal-2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 24, textAlign: "center" }}>
@@ -2750,9 +2777,9 @@ function AdminApp(props) {
   }
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 16px", color: "var(--paper)", position: "relative" }}>
+    <div className="sn-admin" style={{ maxWidth: 1180, margin: "0 auto", padding: "0 14px", color: "var(--paper)", position: "relative" }}>
       {staffToast && (
-        <button className="sn-btn" onClick={() => setStaffTab("kitchen")} style={{ position: "fixed", top: 18, left: "50%", transform: "translateX(-50%)", background: "var(--gold)", color: "#3A2607", padding: "12px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 8, zIndex: 90, animation: "sn-toast-in 0.25s ease", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}>
+        <button className="sn-btn" onClick={() => setStaffTab("kitchen")} style={{ position: "fixed", top: "calc(18px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", background: "var(--gold)", color: "#3A2607", padding: "12px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 8, zIndex: 90, animation: "sn-toast-in 0.25s ease", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}>
           <Bell size={15} /> {staffToast} — view →
         </button>
       )}
