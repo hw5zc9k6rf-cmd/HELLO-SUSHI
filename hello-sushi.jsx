@@ -2664,7 +2664,7 @@ function SupportBlock({ dark = true }) {
     <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? "rgba(255,255,255,0.1)" : "var(--line)"}`, textAlign: "center" }}>
       <p style={{ fontSize: 12, fontWeight: 700, margin: 0, color: dark ? "var(--gold-soft)" : "var(--ink)" }}>Technical support — {SUPPORT_NAME}</p>
       <p style={{ fontSize: 11, color: muted, margin: "4px 0 10px", lineHeight: 1.5 }}>
-        Any technical issues, errors or problems? Scan the QR code to reach {SUPPORT_NAME} on WhatsApp — we're here to help.
+        Any technical issues, errors or problems? Scan the QR code to reach {SUPPORT_NAME} on WhatsApp — I'm here to help.
       </p>
       <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
         <QR text={SUPPORT_WHATSAPP_URL} size={132} />
