@@ -75,6 +75,7 @@ function rowToOrder(r) {
     placedAt: Number(r.placed_at),
     estMinutes: r.est_minutes,
     scheduledFor: r.scheduled_for != null ? Number(r.scheduled_for) : null,
+    trackToken: r.track_token || null,
   };
 }
 
@@ -165,10 +166,19 @@ export const db = {
   deleteCategory: (id) => run(supabase.from("categories").delete().eq("id", id)),
   saveCategories: (cats) => run(supabase.from("categories").upsert(cats.map(catToRow))),
 
+  // Anon-safe: goes through the place_order() function (customers cannot
+  // read or write the orders table directly).
   async createOrder(order) {
-    const { data, error } = await supabase.from("orders").insert(orderToRow(order)).select().single();
+    const { data, error } = await supabase.rpc("place_order", { p_order: orderToRow(order) });
     if (error) throw error;
-    return rowToOrder(data);
+    return rowToOrder(Array.isArray(data) ? data[0] : data);
+  },
+  // Customer order tracking — one order by its unguessable token.
+  async fetchOrderByToken(token) {
+    const { data, error } = await supabase.rpc("get_order", { p_token: token });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? rowToOrder(row) : null;
   },
   updateOrderStatus: (id, status) => run(supabase.from("orders").update({ status }).eq("id", id)),
   deleteOrder: (id) => run(supabase.from("orders").delete().eq("id", id)),

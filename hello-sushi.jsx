@@ -236,6 +236,7 @@ const DEFAULT_SETTINGS = {
   currency: "USD ($)",
   tableCount: 10,
   siteUrl: "",
+  qrOrderingOnly: true, // ordering is disabled unless the guest scanned a table QR
   soundAlerts: true, // play a chime in the admin dashboard when a new order arrives
   preorderEnabled: true, // let customers schedule an order for a later time
   preorderMaxDays: 7,    // how many days ahead a pre-order can be placed
@@ -401,6 +402,7 @@ const T = {
     orderCancelled: "This order was cancelled.", orderCancelledHelp: "Please speak with a staff member if you have questions.",
     scanToTrack: "Scan this code with your phone to follow your order on another device.",
     orderNotFound: "Order not found", orderNotFoundHelp: "This order link can't be opened here. Please check with a staff member.",
+    scanToOrder: "Scan the QR code at your table to order.", menuViewOnly: "You're viewing the menu",
     qrNote: "The restaurant's payment QR code will be shown at checkout.", selectLanguage: "Language",
     payNow: "Pay now", howToPay: "How to pay", completeYourPayment: "Complete your payment", paymentPending: "Payment pending",
     when: "When", asap: "As soon as possible", scheduleLater: "Schedule for later", preorder: "Pre-order", scheduledFor: "Scheduled for", pickDate: "Date", pickTime: "Time",
@@ -449,6 +451,7 @@ const T = {
     orderCancelled: "ဒီအော်ဒါကို ပယ်ဖျက်လိုက်ပါသည်။", orderCancelledHelp: "မေးခွန်းရှိပါက ဝန်ထမ်းတစ်ဦးဦးအား ပြောပါ။",
     scanToTrack: "အခြားစက်တစ်ခုတွင် အော်ဒါကိုကြည့်ရန် ဤကုဒ်ကို ဖုန်းဖြင့် စကင်ဖတ်ပါ။",
     orderNotFound: "အော်ဒါ ရှာမတွေ့ပါ", orderNotFoundHelp: "ဤအော်ဒါလင့်ခ်ကို ဖွင့်၍မရပါ။ ဝန်ထမ်းတစ်ဦးဦးအား မေးမြန်းပါ။",
+    scanToOrder: "မှာယူရန် စားပွဲရှိ QR ကုဒ်ကို စကင်န်ဖတ်ပါ။", menuViewOnly: "မီနူးကို ကြည့်ရှုနေသည်",
     qrNote: "ဆိုင်၏ ငွေပေးချေမှု QR ကုဒ်ကို ငွေရှင်းချိန်တွင် ပြသပါမည်။", selectLanguage: "ဘာသာစကား",
     payNow: "ယခုပေးချေရန်", howToPay: "ငွေပေးချေနည်း", completeYourPayment: "ငွေပေးချေမှု ပြီးမြောက်စေရန်", paymentPending: "ငွေပေးချေရန် ကျန်ရှိ",
     when: "အချိန်", asap: "အမြန်ဆုံး", scheduleLater: "နောက်မှ အချိန်သတ်မှတ်ရန်", preorder: "ကြိုတင်မှာယူ", scheduledFor: "သတ်မှတ်အချိန်", pickDate: "ရက်စွဲ", pickTime: "အချိန်",
@@ -497,6 +500,7 @@ const T = {
     orderCancelled: "此订单已取消。", orderCancelledHelp: "如有疑问请联系工作人员。",
     scanToTrack: "用手机扫描此码，即可在其他设备上跟踪订单。",
     orderNotFound: "未找到订单", orderNotFoundHelp: "无法在此打开该订单链接，请咨询工作人员。",
+    scanToOrder: "扫描餐桌上的二维码即可点餐。", menuViewOnly: "您正在浏览菜单",
     qrNote: "餐厅的付款二维码将在结算时显示。", selectLanguage: "语言",
     payNow: "立即支付", howToPay: "如何支付", completeYourPayment: "完成支付", paymentPending: "待支付",
     when: "时间", asap: "尽快", scheduleLater: "预约稍后时间", preorder: "预订", scheduledFor: "预约时间", pickDate: "日期", pickTime: "时间",
@@ -545,6 +549,7 @@ const T = {
     orderCancelled: "Este pedido fue cancelado.", orderCancelledHelp: "Habla con un miembro del personal si tienes preguntas.",
     scanToTrack: "Escanea este código con tu teléfono para seguir el pedido en otro dispositivo.",
     orderNotFound: "Pedido no encontrado", orderNotFoundHelp: "Este enlace de pedido no se puede abrir aquí. Consulta con un miembro del personal.",
+    scanToOrder: "Escanea el código QR de tu mesa para pedir.", menuViewOnly: "Estás viendo el menú",
     qrNote: "El código QR de pago del restaurante se mostrará al finalizar la compra.", selectLanguage: "Idioma",
     payNow: "Pagar ahora", howToPay: "Cómo pagar", completeYourPayment: "Completa tu pago", paymentPending: "Pago pendiente",
     when: "Cuándo", asap: "Lo antes posible", scheduleLater: "Programar para más tarde", preorder: "Pedido anticipado", scheduledFor: "Programado para", pickDate: "Fecha", pickTime: "Hora",
@@ -593,6 +598,7 @@ const T = {
     orderCancelled: "ออร์เดอร์นี้ถูกยกเลิก", orderCancelledHelp: "หากมีคำถามกรุณาติดต่อพนักงาน",
     scanToTrack: "สแกนโค้ดนี้ด้วยมือถือเพื่อติดตามออร์เดอร์บนอุปกรณ์อื่น",
     orderNotFound: "ไม่พบออร์เดอร์", orderNotFoundHelp: "ไม่สามารถเปิดลิงก์ออร์เดอร์นี้ได้ กรุณาสอบถามพนักงาน",
+    scanToOrder: "สแกน QR โค้ดที่โต๊ะของคุณเพื่อสั่งอาหาร", menuViewOnly: "คุณกำลังดูเมนู",
     qrNote: "คิวอาร์โค้ดสำหรับชำระเงินของร้านจะแสดงตอนชำระเงิน", selectLanguage: "ภาษา",
     payNow: "ชำระเงินตอนนี้", howToPay: "วิธีชำระเงิน", completeYourPayment: "ชำระเงินให้เสร็จสิ้น", paymentPending: "รอชำระเงิน",
     when: "เมื่อไหร่", asap: "โดยเร็วที่สุด", scheduleLater: "กำหนดเวลาภายหลัง", preorder: "สั่งล่วงหน้า", scheduledFor: "กำหนดเวลา", pickDate: "วันที่", pickTime: "เวลา",
@@ -670,7 +676,10 @@ function readTableParam() {
 function readOrderParam() {
   try {
     const raw = new URLSearchParams(window.location.search).get("order");
-    return raw ? raw.trim().toUpperCase().slice(0, 12) : null;
+    if (!raw) return null;
+    const v = raw.trim().toLowerCase();
+    // tracking tokens are UUIDs
+    return /^[0-9a-f-]{20,40}$/.test(v) ? v : null;
   } catch { return null; }
 }
 
@@ -686,7 +695,9 @@ export default function App() {
   const [reservations, setReservations] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [customerScreen, setCustomerScreen] = useState(orderParam ? "tracking" : tableParam ? "menu" : "home");
-  const [lookupOrderNumber] = useState(orderParam || null);
+  const [lookupToken] = useState(orderParam || null);
+  const [lookedUpOrder, setLookedUpOrder] = useState(null);
+  const [lookupTried, setLookupTried] = useState(!orderParam);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recommended");
@@ -714,6 +725,9 @@ export default function App() {
   const adminAuthed = !!session;
   const seenOrderIds = useRef(null);
   const t = T[lang] || T.en;
+  // ordering is allowed only when the customer arrived via a table QR (?table=NN),
+  // unless an admin has turned that requirement off
+  const canOrder = settings.qrOrderingOnly === false || tableLocked;
 
   const useBundled = () => { setCategoriesState(CATS); setMenuItemsState(MENU_ITEMS); dbReadyRef.current = false; setCatalogSource("bundled"); };
 
@@ -801,8 +815,23 @@ export default function App() {
   }, [orders, adminAuthed, settings.soundAlerts, settings.name]);
 
   const activeOrder = orders.find((o) => o.id === activeOrderId)
-    || (lookupOrderNumber && orders.find((o) => o.orderNumber && o.orderNumber.toUpperCase() === lookupOrderNumber))
+    || (lookupToken && orders.find((o) => o.trackToken === lookupToken))
+    || (lookedUpOrder && lookedUpOrder.trackToken === lookupToken ? lookedUpOrder : null)
     || null;
+
+  // Anon order tracking: fetch the one order by its token, then keep it fresh
+  // while the customer is on the tracking screen.
+  useEffect(() => {
+    if (!lookupToken || !supabaseConfigured) return;
+    let alive = true;
+    const pull = () => db.fetchOrderByToken(lookupToken)
+      .then((o) => { if (alive && o) setLookedUpOrder(o); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLookupTried(true); });
+    pull();
+    const id = setInterval(() => { if (customerScreen === "tracking") pull(); }, 12000);
+    return () => { alive = false; clearInterval(id); };
+  }, [lookupToken, customerScreen]);
   const activeCats = useMemo(() => categoriesState.filter((c) => c.active).sort((a, b) => a.order - b.order), [categoriesState]);
 
   const cartTotals = useMemo(() => {
@@ -816,6 +845,7 @@ export default function App() {
   }, [cart, promoApplied, checkoutForm.orderType, settings, content.promoDiscountPct]);
 
   function addToCart(line) {
+    if (!canOrder) { setSelectedItem(null); return; }
     setCart((c) => [...c, line]);
     setSelectedItem(null);
     setAddedToast(line.name);
@@ -978,7 +1008,7 @@ export default function App() {
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap'); .sn-root{ font-family:'Inter','Noto Sans Myanmar','Noto Sans Thai','Noto Sans SC',system-ui,sans-serif; }`}</style>
 
-      <TopBar mode={mode} setMode={setMode} lang={lang} setLang={setLang} t={t} cart={cart} screen={customerScreen} setScreen={setCustomerScreen} settings={settings} />
+      <TopBar mode={mode} setMode={setMode} lang={lang} setLang={setLang} t={t} cart={cart} screen={customerScreen} setScreen={setCustomerScreen} settings={settings} canOrder={canOrder} />
 
       {dataReady && catalogSource === "bundled" && (
         <OfflineBanner kind={loadError === "not-configured" ? "not-configured" : loadError ? "offline" : "not-seeded"} />
@@ -989,6 +1019,7 @@ export default function App() {
       ) : mode === "customer" ? (
         <CustomerApp
           t={t} lang={lang} table={table} tableLocked={tableLocked} settings={settings}
+          canOrder={canOrder}
           content={content}
           menuItems={menuItemsState}
           cats={activeCats}
@@ -1021,6 +1052,7 @@ export default function App() {
           placing={placing}
           placeOrder={placeOrder}
           activeOrder={activeOrder}
+          orderLoading={!!lookupToken && !lookupTried && !activeOrder}
           addedToast={addedToast}
           addReservation={addReservation}
         />
@@ -1067,7 +1099,7 @@ export default function App() {
 
 const BACK_TARGET = { cart: "menu", checkout: "cart", confirmation: "menu", tracking: "menu" };
 
-function TopBar({ mode, setMode, lang, setLang, t, cart = [], screen = "menu", setScreen, settings }) {
+function TopBar({ mode, setMode, lang, setLang, t, cart = [], screen = "menu", setScreen, settings, canOrder = true }) {
   const [langOpen, setLangOpen] = useState(false);
   const current = LANGS.find((l) => l.code === lang) || LANGS[0];
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
@@ -1108,7 +1140,7 @@ function TopBar({ mode, setMode, lang, setLang, t, cart = [], screen = "menu", s
             )}
           </div>
         )}
-        {mode === "customer" && (
+        {mode === "customer" && canOrder && (
           <button
             className="sn-btn"
             onClick={() => setScreen("cart")}
@@ -1204,7 +1236,7 @@ function CustomerApp(props) {
       {screen === "checkout" && <CheckoutScreen {...props} />}
       {screen === "confirmation" && <ConfirmationScreen {...props} />}
       {screen === "tracking" && <TrackingScreen {...props} />}
-      {props.selectedItem && <ItemModal t={props.t} lang={props.lang} cats={props.cats} item={props.selectedItem} onClose={() => props.setSelectedItem(null)} onAdd={props.addToCart} fav={props.favorites.includes(props.selectedItem.id)} onFav={() => props.toggleFavorite(props.selectedItem.id)} />}
+      {props.selectedItem && <ItemModal t={props.t} lang={props.lang} cats={props.cats} canOrder={props.canOrder} item={props.selectedItem} onClose={() => props.setSelectedItem(null)} onAdd={props.addToCart} fav={props.favorites.includes(props.selectedItem.id)} onFav={() => props.toggleFavorite(props.selectedItem.id)} />}
       {props.addedToast && <AddedToast name={props.addedToast} />}
     </div>
   );
@@ -1247,7 +1279,7 @@ function catOf(id, cats, lang) {
 // content field with fallback to the translated default
 const cf = (content, t, key) => (content && content[key] && String(content[key]).trim() ? content[key] : t[key]);
 
-function HomeScreen({ t, lang, settings, content, menuItems, cats, reviews, setScreen, setActiveCategory, setSelectedItem, favorites, toggleFavorite }) {
+function HomeScreen({ t, lang, settings, content, menuItems, cats, reviews, canOrder = true, setScreen, setActiveCategory, setSelectedItem, favorites, toggleFavorite }) {
   const featured = menuItems.filter((i) => (i.recommended || i.popular) && i.available).slice(0, 8);
   const popIds = (content.popularPickIds && content.popularPickIds.length ? content.popularPickIds : POPULAR_PICK_IDS);
   const popularPicks = popIds.map((id) => menuItems.find((i) => i.id === id)).filter((i) => i && i.available);
@@ -1263,7 +1295,9 @@ function HomeScreen({ t, lang, settings, content, menuItems, cats, reviews, setS
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", margin: "18px auto 0", maxWidth: 340, lineHeight: 1.6 }}>{cf(content, t, "heroIntro")}</p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 22, flexWrap: "wrap" }}>
           <button className="sn-btn" onClick={() => setScreen("menu")} style={{ background: "var(--wine)", color: "#fff", borderRadius: 12, padding: "12px 22px", fontSize: 13.5, fontWeight: 700 }}>{t.viewMenu}</button>
-          <button className="sn-btn" onClick={() => { setActiveCategory("All"); setScreen("menu"); }} style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 12, padding: "12px 22px", fontSize: 13.5, fontWeight: 700 }}>{t.orderNow}</button>
+          {canOrder
+            ? <button className="sn-btn" onClick={() => { setActiveCategory("All"); setScreen("menu"); }} style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 12, padding: "12px 22px", fontSize: 13.5, fontWeight: 700 }}>{t.orderNow}</button>
+            : <button className="sn-btn" onClick={() => setScreen("reserve")} style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 12, padding: "12px 22px", fontSize: 13.5, fontWeight: 700 }}>{t.navBook}</button>}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", justifyContent: "center" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(255,255,255,0.12)", borderRadius: 999, padding: "4px 10px", fontSize: 11.5, fontWeight: 600 }}>
@@ -1556,7 +1590,7 @@ function ReserveScreen({ t, settings, addReservation, setScreen }) {
 
 const SORT_OPTIONS = ["recommended", "priceLow", "priceHigh", "rating"];
 
-function MenuScreen({ t, lang, table, tableLocked, menuItems, cats, activeCategory, setActiveCategory, search, setSearch, sortBy, setSortBy, favorites, toggleFavorite, setSelectedItem, cart, cartTotals, setScreen, settings }) {
+function MenuScreen({ t, lang, table, tableLocked, canOrder = true, menuItems, cats, activeCategory, setActiveCategory, search, setSearch, sortBy, setSortBy, favorites, toggleFavorite, setSelectedItem, cart, cartTotals, setScreen, settings }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = menuItems.filter((i) => {
@@ -1614,6 +1648,11 @@ function MenuScreen({ t, lang, table, tableLocked, menuItems, cats, activeCatego
           </div>
         </div>
         {tableLocked && <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.9)", margin: "10px 0 0", fontWeight: 600 }}>{t.orderingFor} {t.table} {table}</p>}
+        {!canOrder && (
+          <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.92)", margin: "10px 0 0", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <QrIcon size={13} /> {t.menuViewOnly} — {t.scanToOrder}
+          </p>
+        )}
         <div style={{ marginTop: 14, position: "relative" }}>
           <Search size={15} style={{ position: "absolute", left: 12, top: 12, color: "rgba(255,255,255,0.55)" }} />
           <input
@@ -1952,7 +1991,7 @@ function MenuCard({ item, onClick, lang, t, cats, fav, onFav }) {
   );
 }
 
-function ItemModal({ item, onClose, onAdd, lang, t, cats, fav, onFav }) {
+function ItemModal({ item, onClose, onAdd, lang, t, cats, fav, onFav, canOrder = true }) {
   const [size, setSize] = useState(item.sizes ? item.sizes[0] : null);
   const [spice, setSpice] = useState(item.spiceLevels ? "Medium" : null);
   const [addons, setAddons] = useState([]);
@@ -2033,39 +2072,48 @@ function ItemModal({ item, onClose, onAdd, lang, t, cats, fav, onFav }) {
             </ModalSection>
           )}
 
-          <ModalSection title={t.instructions}>
-            <textarea
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder={t.instructionsPh}
-              rows={2}
-              style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", fontSize: 13, fontFamily: "inherit", resize: "none", outline: "none" }}
-            />
-          </ModalSection>
+          {canOrder ? (
+            <>
+              <ModalSection title={t.instructions}>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder={t.instructionsPh}
+                  rows={2}
+                  style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", fontSize: 13, fontFamily: "inherit", resize: "none", outline: "none" }}
+                />
+              </ModalSection>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{t.quantity}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button className="sn-btn" onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--line)", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={14} /></button>
-              <span style={{ fontSize: 15, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qty}</span>
-              <button className="sn-btn" onClick={() => setQty((q) => q + 1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--line)", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={14} /></button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t.quantity}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <button className="sn-btn" onClick={() => setQty((q) => Math.max(1, q - 1))} style={{ width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--line)", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={14} /></button>
+                  <span style={{ fontSize: 15, fontWeight: 700, minWidth: 18, textAlign: "center" }}>{qty}</span>
+                  <button className="sn-btn" onClick={() => setQty((q) => q + 1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--line)", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={14} /></button>
+                </div>
+              </div>
+
+              <button
+                className="sn-btn"
+                onClick={() =>
+                  onAdd({
+                    cartId: uid(), itemId: item.id, name, icon: item.icon, image: item.image || "",
+                    size: size ? size.name : null, spice, addons, instructions: instructions.trim(),
+                    unitPrice, qty,
+                  })
+                }
+                style={{ width: "100%", marginTop: 18, background: "var(--wine)", color: "#fff", borderRadius: 12, padding: "13px 18px", fontSize: 14, fontWeight: 700, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
+                <span>{t.addToCart}</span>
+                <span>{fmt(unitPrice * qty)}</span>
+              </button>
+            </>
+          ) : (
+            <div style={{ marginTop: 18, background: "var(--paper-dim)", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <QrIcon size={22} style={{ color: "var(--wine)", flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{t.scanToOrder}</span>
             </div>
-          </div>
-
-          <button
-            className="sn-btn"
-            onClick={() =>
-              onAdd({
-                cartId: uid(), itemId: item.id, name, icon: item.icon, image: item.image || "",
-                size: size ? size.name : null, spice, addons, instructions: instructions.trim(),
-                unitPrice, qty,
-              })
-            }
-            style={{ width: "100%", marginTop: 18, background: "var(--wine)", color: "#fff", borderRadius: 12, padding: "13px 18px", fontSize: 14, fontWeight: 700, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <span>{t.addToCart}</span>
-            <span>{fmt(unitPrice * qty)}</span>
-          </button>
+          )}
         </div>
       </div>
     </div>
@@ -2376,7 +2424,7 @@ const inputStyle = { width: "100%", border: "1px solid var(--line)", borderRadiu
 
 function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
   if (!activeOrder) return null;
-  const trackUrl = orderTrackUrl(settings, activeOrder.orderNumber);
+  const trackUrl = orderTrackUrl(settings, activeOrder);
   const payMethod = paymentMethodByLabel(settings, activeOrder.payment);
   const needsPayment = payMethod && payMethod.type === "online";
   return (
@@ -2438,20 +2486,29 @@ function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
   );
 }
 
-function TrackingScreen({ t, lang, activeOrder, setScreen, settings }) {
+function TrackingScreen({ t, lang, activeOrder, orderLoading, setScreen, settings }) {
   if (!activeOrder) {
     return (
       <div style={{ minHeight: 640, padding: "0 20px 30px" }}>
         <ScreenHeader title={t.orderTracking} onBack={() => setScreen("home")} />
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <Search size={26} style={{ color: "var(--ink-soft)", marginBottom: 10 }} />
-          <p style={{ fontSize: 13.5, fontWeight: 600 }}>{t.orderNotFound}</p>
-          <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4 }}>{t.orderNotFoundHelp}</p>
+        <div style={{ textAlign: "center", padding: "48px 0", color: "var(--ink-soft)" }}>
+          {orderLoading ? (
+            <>
+              <div className="sn-spin" style={{ width: 24, height: 24, border: "3px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px" }} />
+              <p style={{ fontSize: 12.5 }}>Loading your order…</p>
+            </>
+          ) : (
+            <>
+              <Search size={26} style={{ marginBottom: 10 }} />
+              <p style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{t.orderNotFound}</p>
+              <p style={{ fontSize: 12.5, marginTop: 4 }}>{t.orderNotFoundHelp}</p>
+            </>
+          )}
         </div>
       </div>
     );
   }
-  const trackUrl = orderTrackUrl(settings, activeOrder.orderNumber);
+  const trackUrl = orderTrackUrl(settings, activeOrder);
   if (activeOrder.status === "Cancelled") {
     return (
       <div style={{ minHeight: 640, padding: "0 20px 30px" }}>
@@ -2964,11 +3021,11 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteO
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, background: "var(--charcoal-3)", borderRadius: 10, padding: 10 }}>
               <div style={{ padding: 5, background: "#fff", borderRadius: 6, flexShrink: 0 }}>
-                <QR text={orderTrackUrl(settings, detailOrder.orderNumber)} size={64} />
+                <QR text={orderTrackUrl(settings, detailOrder)} size={64} />
               </div>
               <div>
                 <p style={{ fontSize: 11.5, fontWeight: 700, margin: 0 }}>Customer tracking QR</p>
-                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", margin: "3px 0 0", wordBreak: "break-all" }}>{orderTrackUrl(settings, detailOrder.orderNumber)}</p>
+                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", margin: "3px 0 0", wordBreak: "break-all" }}>{orderTrackUrl(settings, detailOrder)}</p>
               </div>
             </div>
 
@@ -3073,7 +3130,7 @@ function ReceiptModal({ order, settings, onClose }) {
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Payment</span><span>{order.payment}</span></div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 12 }}>
-            <QR text={orderTrackUrl(settings, order.orderNumber)} size={96} />
+            <QR text={orderTrackUrl(settings, order)} size={96} />
             <p style={{ fontSize: 9, margin: "4px 0 0" }}>Scan to track your order</p>
           </div>
           <p style={{ textAlign: "center", margin: "10px 0 0", fontSize: 10 }}>Thank you — see you again!</p>
@@ -3478,10 +3535,12 @@ function tableUrl(settings, number) {
   b = b.replace(/\s+/g, "");
   return b + (b.includes("?") ? "&" : "?") + "table=" + number;
 }
-function orderTrackUrl(settings, orderNumber) {
+function orderTrackUrl(settings, order) {
+  const token = order && (order.trackToken || order.track_token);
+  if (!token) return "";
   let b = ((settings && settings.siteUrl) || "").trim() || qrOrigin();
   b = b.replace(/\s+/g, "");
-  return b + (b.includes("?") ? "&" : "?") + "order=" + orderNumber;
+  return b + (b.includes("?") ? "&" : "?") + "order=" + token;
 }
 async function downloadQrPng(text, filename) {
   try {
@@ -3814,6 +3873,17 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
         <div><p style={L}>Tables (QR codes)</p><input type="number" value={f.tableCount ?? 10} onChange={(e) => set("tableCount", e.target.value)} style={adminInput} /></div>
       </div>
       <div style={{ ...cardStyle, marginTop: 18 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>Ordering</p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 6 }}>
+          <input type="checkbox" checked={f.qrOrderingOnly !== false} onChange={(e) => set("qrOrderingOnly", e.target.checked)} style={{ accentColor: "#D6482E" }} />
+          Only allow ordering from a table QR code
+        </label>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "8px 0 0" }}>
+          On: guests who open the site without scanning a table QR (<code>?table=NN</code>) can browse the menu but can't add to cart or check out. Off: anyone can order online.
+        </p>
+      </div>
+
+      <div style={{ ...cardStyle, marginTop: 14 }}>
         <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>Pre-orders</p>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 6 }}>
           <input type="checkbox" checked={f.preorderEnabled !== false} onChange={(e) => set("preorderEnabled", e.target.checked)} style={{ accentColor: "#D6482E" }} />

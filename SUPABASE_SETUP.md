@@ -88,6 +88,15 @@ Anyone can view the images (public bucket); only signed-in staff can upload,
 replace or delete. If the bucket is missing, uploads fall back to storing the
 image inline in the row (still works, just heavier).
 
+## Order privacy
+
+Customers **cannot read the `orders` table** — it holds every customer's name,
+phone and email. They place an order through the `place_order()` function and
+track it through `get_order(token)` using an unguessable per-order token
+(`track_token`, in the order-tracking URL/QR). Only signed-in staff can list
+orders. Re-run `supabase/schema.sql` to apply this (it adds the `track_token`
+column and the two functions).
+
 ## How access is enforced (RLS)
 
 | Table | anonymous customer | signed-in staff |

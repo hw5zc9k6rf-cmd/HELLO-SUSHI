@@ -104,16 +104,75 @@ drop policy if exists settings_write on public.settings;
 create policy settings_read  on public.settings for select to anon, authenticated using (true);
 create policy settings_write on public.settings for all    to authenticated using (true) with check (true);
 
--- Orders: a customer (anon) may place an order and read it back to track
--- it; only staff may change or delete. Order numbers are not secret.
+-- Orders. A customer is NEVER allowed to read the orders table directly
+-- (it holds names / phones / emails of every customer). They place an
+-- order through the place_order() function and track it through
+-- get_order(token) using the unguessable token they were handed. Only
+-- signed-in staff can list, change or delete orders.
+alter table public.orders add column if not exists track_token uuid not null default gen_random_uuid();
+create unique index if not exists orders_track_token_idx on public.orders (track_token);
+
 drop policy if exists orders_read   on public.orders;
+drop policy if exists orders_select on public.orders;
 drop policy if exists orders_insert on public.orders;
 drop policy if exists orders_update on public.orders;
 drop policy if exists orders_delete on public.orders;
-create policy orders_read   on public.orders for select to anon, authenticated using (true);
-create policy orders_insert on public.orders for insert to anon, authenticated with check (true);
+create policy orders_select on public.orders for select to authenticated using (true);
+create policy orders_insert on public.orders for insert to authenticated with check (true);
 create policy orders_update on public.orders for update to authenticated using (true) with check (true);
 create policy orders_delete on public.orders for delete to authenticated using (true);
+
+-- Place an order (anon-callable). Forces status='New' and a server
+-- timestamp; clamps negatives. Returns the new row incl. track_token.
+create or replace function public.place_order(p_order jsonb)
+returns public.orders
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare r public.orders;
+begin
+  insert into public.orders (
+    status, placed_at, est_minutes, table_label, name, phone, email,
+    instructions, payment, order_type, subtotal, tax, service,
+    delivery_fee, discount, total, items, scheduled_for
+  ) values (
+    'New',
+    (extract(epoch from now()) * 1000)::bigint,
+    least(greatest(coalesce((p_order->>'est_minutes')::int, 20), 1), 240),
+    nullif(p_order->>'table_label',''),
+    left(nullif(p_order->>'name',''), 120),
+    left(nullif(p_order->>'phone',''), 40),
+    left(nullif(p_order->>'email',''), 160),
+    left(nullif(p_order->>'instructions',''), 500),
+    left(nullif(p_order->>'payment',''), 80),
+    left(nullif(p_order->>'order_type',''), 40),
+    greatest(coalesce((p_order->>'subtotal')::numeric, 0), 0),
+    greatest(coalesce((p_order->>'tax')::numeric, 0), 0),
+    greatest(coalesce((p_order->>'service')::numeric, 0), 0),
+    greatest(coalesce((p_order->>'delivery_fee')::numeric, 0), 0),
+    greatest(coalesce((p_order->>'discount')::numeric, 0), 0),
+    greatest(coalesce((p_order->>'total')::numeric, 0), 0),
+    coalesce(p_order->'items', '[]'::jsonb),
+    (p_order->>'scheduled_for')::bigint
+  ) returning * into r;
+  return r;
+end;
+$$;
+revoke all on function public.place_order(jsonb) from public;
+grant execute on function public.place_order(jsonb) to anon, authenticated;
+
+-- Fetch one order by its unguessable tracking token (anon-callable).
+create or replace function public.get_order(p_token uuid)
+returns public.orders
+language sql
+security definer
+set search_path = public
+as $$
+  select * from public.orders where track_token = p_token limit 1;
+$$;
+revoke all on function public.get_order(uuid) from public;
+grant execute on function public.get_order(uuid) to anon, authenticated;
 
 -- Reservations: a customer may request one; only staff may read / change.
 drop policy if exists reservations_insert on public.reservations;
