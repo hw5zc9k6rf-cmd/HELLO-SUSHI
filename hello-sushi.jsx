@@ -235,6 +235,17 @@ const DEFAULT_SETTINGS = {
   currency: "USD ($)",
   tableCount: 10,
   siteUrl: "",
+  // Admin-editable in Settings → Payment methods.
+  // type "person" = pay in person (label + note only)
+  // type "online" = pay now: `url` (Venmo / Cash App / PayPal.me / Stripe Payment
+  //   Link / Square checkout — any link) shown as a button + auto-generated QR,
+  //   and/or an uploaded `image` QR (image wins if both are set)
+  paymentMethods: [
+    { id: "counter", label: "Pay at counter", type: "person", note: "Pay when you collect your order or at your table.", url: "", image: "", enabled: true },
+    { id: "cash", label: "Cash", type: "person", note: "Please have the amount ready for our staff.", url: "", image: "", enabled: true },
+    { id: "card", label: "Card in person", type: "person", note: "We'll bring the card reader to your table.", url: "", image: "", enabled: true },
+    { id: "online", label: "Pay now (Venmo / Cash App / card)", type: "online", note: "Pay with the link or QR below, then show the confirmation to our staff.", url: "", image: "", enabled: false },
+  ],
 };
 
 const REVIEWS = [
@@ -320,6 +331,7 @@ const T = {
     scanToTrack: "Scan this code with your phone to follow your order on another device.",
     orderNotFound: "Order not found", orderNotFoundHelp: "This order link can't be opened here. Please check with a staff member.",
     qrNote: "The restaurant's payment QR code will be shown at checkout.", selectLanguage: "Language",
+    payNow: "Pay now", howToPay: "How to pay", completeYourPayment: "Complete your payment", paymentPending: "Payment pending",
     add: "Add", reviews: "reviews", allergens: "Allergens", contains: "Contains",
     heroIntro: "A delightful escape into authentic Asian cuisine on Nolensville Pike — sushi, Burmese, Thai and Chinese dishes, in both classic and modern interpretations.",
     viewMenu: "View Menu", orderNow: "Order Now", featured: "Featured dishes", browseCategories: "Browse by category",
@@ -366,6 +378,7 @@ const T = {
     scanToTrack: "အခြားစက်တစ်ခုတွင် အော်ဒါကိုကြည့်ရန် ဤကုဒ်ကို ဖုန်းဖြင့် စကင်ဖတ်ပါ။",
     orderNotFound: "အော်ဒါ ရှာမတွေ့ပါ", orderNotFoundHelp: "ဤအော်ဒါလင့်ခ်ကို ဖွင့်၍မရပါ။ ဝန်ထမ်းတစ်ဦးဦးအား မေးမြန်းပါ။",
     qrNote: "ဆိုင်၏ ငွေပေးချေမှု QR ကုဒ်ကို ငွေရှင်းချိန်တွင် ပြသပါမည်။", selectLanguage: "ဘာသာစကား",
+    payNow: "ယခုပေးချေရန်", howToPay: "ငွေပေးချေနည်း", completeYourPayment: "ငွေပေးချေမှု ပြီးမြောက်စေရန်", paymentPending: "ငွေပေးချေရန် ကျန်ရှိ",
     add: "ထည့်ရန်", reviews: "သုံးသပ်ချက်", allergens: "ဓာတ်မတည့်စာ", contains: "ပါဝင်သည်",
     heroIntro: "Nolensville Pike ပေါ်ရှိ စစ်မှန်သော အာရှအစားအစာများ — ဆူရှီ၊ မြန်မာ၊ ထိုင်းနှင့် တရုတ် ဟင်းလျာများ။",
     viewMenu: "မီနူးကြည့်ရန်", orderNow: "အခုမှာမည်", featured: "အထူးဟင်းလျာများ", browseCategories: "အမျိုးအစားဖြင့် ရှာရန်",
@@ -412,6 +425,7 @@ const T = {
     scanToTrack: "用手机扫描此码，即可在其他设备上跟踪订单。",
     orderNotFound: "未找到订单", orderNotFoundHelp: "无法在此打开该订单链接，请咨询工作人员。",
     qrNote: "餐厅的付款二维码将在结算时显示。", selectLanguage: "语言",
+    payNow: "立即支付", howToPay: "如何支付", completeYourPayment: "完成支付", paymentPending: "待支付",
     add: "添加", reviews: "条评价", allergens: "过敏原", contains: "含有",
     heroIntro: "位于 Nolensville Pike 的正宗亚洲美食——寿司、缅甸、泰式与中式菜肴，兼具经典与现代演绎。",
     viewMenu: "查看菜单", orderNow: "立即点餐", featured: "招牌菜品", browseCategories: "按分类浏览",
@@ -458,6 +472,7 @@ const T = {
     scanToTrack: "Escanea este código con tu teléfono para seguir el pedido en otro dispositivo.",
     orderNotFound: "Pedido no encontrado", orderNotFoundHelp: "Este enlace de pedido no se puede abrir aquí. Consulta con un miembro del personal.",
     qrNote: "El código QR de pago del restaurante se mostrará al finalizar la compra.", selectLanguage: "Idioma",
+    payNow: "Pagar ahora", howToPay: "Cómo pagar", completeYourPayment: "Completa tu pago", paymentPending: "Pago pendiente",
     add: "Añadir", reviews: "reseñas", allergens: "Alérgenos", contains: "Contiene",
     heroIntro: "Una escapada a la auténtica cocina asiática en Nolensville Pike: sushi, birmana, tailandesa y china, en versiones clásicas y modernas.",
     viewMenu: "Ver menú", orderNow: "Pedir ahora", featured: "Platos destacados", browseCategories: "Explorar por categoría",
@@ -504,6 +519,7 @@ const T = {
     scanToTrack: "สแกนโค้ดนี้ด้วยมือถือเพื่อติดตามออร์เดอร์บนอุปกรณ์อื่น",
     orderNotFound: "ไม่พบออร์เดอร์", orderNotFoundHelp: "ไม่สามารถเปิดลิงก์ออร์เดอร์นี้ได้ กรุณาสอบถามพนักงาน",
     qrNote: "คิวอาร์โค้ดสำหรับชำระเงินของร้านจะแสดงตอนชำระเงิน", selectLanguage: "ภาษา",
+    payNow: "ชำระเงินตอนนี้", howToPay: "วิธีชำระเงิน", completeYourPayment: "ชำระเงินให้เสร็จสิ้น", paymentPending: "รอชำระเงิน",
     add: "เพิ่ม", reviews: "รีวิว", allergens: "สารก่อภูมิแพ้", contains: "มีส่วนผสมของ",
     heroIntro: "การพักผ่อนสู่อาหารเอเชียแท้บนถนน Nolensville Pike — ซูชิ พม่า ไทย และจีน ทั้งแบบดั้งเดิมและร่วมสมัย",
     viewMenu: "ดูเมนู", orderNow: "สั่งเลย", featured: "เมนูแนะนำ", browseCategories: "เลือกตามหมวดหมู่",
@@ -2039,9 +2055,59 @@ function ScreenHeader({ title, onBack }) {
   );
 }
 
-function CheckoutScreen({ t, checkoutForm, setCheckoutForm, cart, cartTotals, placing, placeOrder, setScreen }) {
+/* ---------------------------------------------------------- payments */
+
+const isHttpUrl = (s) => /^https?:\/\//i.test((s || "").trim());
+
+function activePaymentMethods(settings) {
+  const list = (settings && settings.paymentMethods) || DEFAULT_SETTINGS.paymentMethods;
+  const on = list.filter((m) => m && m.enabled);
+  return on.length ? on : [{ id: "counter", label: "Pay at counter", type: "person", note: "", url: "", image: "" }];
+}
+function paymentMethodByLabel(settings, label) {
+  const list = (settings && settings.paymentMethods) || DEFAULT_SETTINGS.paymentMethods;
+  return list.find((m) => m && m.label === label) || null;
+}
+
+// Renders a method's instructions + (for "online") a pay link button and QR / image.
+function PaymentDetail({ method, t, compact = false }) {
+  if (!method) return null;
+  const online = method.type === "online";
+  const hasImg = !!method.image;
+  const hasUrl = !!(method.url && method.url.trim());
+  const showMedia = online && (hasImg || hasUrl);
+  return (
+    <div style={{ marginTop: 10, background: "var(--paper-dim)", borderRadius: 12, padding: 14 }}>
+      {method.note && <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: 0, lineHeight: 1.5 }}>{method.note}</p>}
+      {showMedia && (
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: method.note ? 12 : 0, flexWrap: "wrap" }}>
+          {hasImg ? (
+            <img src={method.image} alt="Payment QR" style={{ width: compact ? 104 : 128, height: compact ? 104 : 128, objectFit: "contain", borderRadius: 8, background: "#fff", padding: 6 }} />
+          ) : (
+            <div style={{ background: "#fff", padding: 8, borderRadius: 8 }}><QR text={method.url} size={compact ? 96 : 120} /></div>
+          )}
+          {hasUrl && isHttpUrl(method.url) && (
+            <a href={method.url} target="_blank" rel="noreferrer" style={{ background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "11px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+              {t.payNow} →
+            </a>
+          )}
+        </div>
+      )}
+      {online && !hasImg && !hasUrl && (
+        <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: method.note ? "8px 0 0" : 0 }}>{t.qrNote}</p>
+      )}
+    </div>
+  );
+}
+
+function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cartTotals, placing, placeOrder, setScreen }) {
   const orderTypes = [{ id: "Dine-in", label: t.dineIn }, { id: "Takeaway", label: t.takeaway }, { id: "Delivery", label: t.delivery }];
-  const payments = ["Pay at counter", "Cash", "QR payment", "Online payment"];
+  const methods = activePaymentMethods(settings);
+  const selected = methods.find((m) => m.label === checkoutForm.payment) || methods[0];
+  useEffect(() => {
+    if (checkoutForm.payment !== selected.label) setCheckoutForm({ ...checkoutForm, payment: selected.label });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div style={{ minHeight: 640, display: "flex", flexDirection: "column" }}>
       <ScreenHeader title={t.checkout} onBack={() => setScreen("cart")} />
@@ -2069,21 +2135,20 @@ function CheckoutScreen({ t, checkoutForm, setCheckoutForm, cart, cartTotals, pl
 
         <FieldLabel>{t.payment}</FieldLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-          {payments.map((p) => (
-            <label key={p} onClick={() => setCheckoutForm({ ...checkoutForm, payment: p })} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", border: `1px solid ${checkoutForm.payment === p ? "var(--wine)" : "var(--line)"}`, borderRadius: 10, cursor: "pointer", background: checkoutForm.payment === p ? "rgba(214,72,46,0.05)" : "#fff" }}>
-              <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${checkoutForm.payment === p ? "var(--wine)" : "var(--line)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {checkoutForm.payment === p && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--wine)" }} />}
-              </span>
-              <span style={{ fontSize: 13 }}>{p}</span>
-            </label>
-          ))}
+          {methods.map((m) => {
+            const on = checkoutForm.payment === m.label;
+            return (
+              <label key={m.id || m.label} onClick={() => setCheckoutForm({ ...checkoutForm, payment: m.label })} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", border: `1px solid ${on ? "var(--wine)" : "var(--line)"}`, borderRadius: 10, cursor: "pointer", background: on ? "rgba(214,72,46,0.05)" : "#fff" }}>
+                <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? "var(--wine)" : "var(--line)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {on && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--wine)" }} />}
+                </span>
+                <span style={{ fontSize: 13, flex: 1 }}>{m.label}</span>
+                {m.type === "online" && <QrIcon size={15} style={{ color: "var(--ink-soft)" }} />}
+              </label>
+            );
+          })}
         </div>
-        {checkoutForm.payment === "QR payment" && (
-          <div style={{ marginTop: 10, background: "var(--paper-dim)", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-            <QrIcon size={28} />
-            <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: 0 }}>{t.qrNote}</p>
-          </div>
-        )}
+        {selected && (selected.note || selected.type === "online") && <PaymentDetail method={selected} t={t} />}
 
         <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 14, padding: 14, marginTop: 20 }}>
           <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 6px", fontWeight: 600 }}>{cart.length} {t.items}</p>
@@ -2114,6 +2179,8 @@ const inputStyle = { width: "100%", border: "1px solid var(--line)", borderRadiu
 function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
   if (!activeOrder) return null;
   const trackUrl = orderTrackUrl(settings, activeOrder.orderNumber);
+  const payMethod = paymentMethodByLabel(settings, activeOrder.payment);
+  const needsPayment = payMethod && payMethod.type === "online";
   return (
     <div style={{ minHeight: 640, display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", textAlign: "center" }}>
       <div style={{ width: 60, height: 60, borderRadius: "50%", background: "var(--herb)", display: "flex", alignItems: "center", justifyContent: "center", animation: "sn-pop 0.3s ease" }}>
@@ -2121,6 +2188,14 @@ function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
       </div>
       <p className="sn-serif" style={{ fontSize: 21, fontWeight: 700, margin: "18px 0 4px" }}>{t.orderPlaced}</p>
       <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: 0 }}>{t.kitchenReceived}</p>
+
+      {needsPayment && (
+        <div style={{ background: "#fff", border: "1px solid var(--wine)", borderRadius: 16, padding: 16, marginTop: 18, width: "100%", textAlign: "left" }}>
+          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--wine-dark)" }}>{t.completeYourPayment} — {fmt(activeOrder.total)}</p>
+          <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "3px 0 0" }}>{payMethod.label}</p>
+          <PaymentDetail method={payMethod} t={t} compact />
+        </div>
+      )}
 
       <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 16, padding: 20, marginTop: 24, width: "100%", textAlign: "left" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px dashed var(--line)", paddingBottom: 12, marginBottom: 12 }}>
@@ -2190,6 +2265,8 @@ function TrackingScreen({ t, lang, activeOrder, setScreen, settings }) {
     );
   }
   const idx = activeOrder.status === "Completed" ? CUSTOMER_STEPS.length : CUSTOMER_STEPS.indexOf(activeOrder.status);
+  const payMethod = paymentMethodByLabel(settings, activeOrder.payment);
+  const needsPayment = payMethod && payMethod.type === "online" && activeOrder.status !== "Completed";
   return (
     <div style={{ minHeight: 640, padding: "0 20px 30px" }}>
       <ScreenHeader title={t.orderTracking} onBack={() => setScreen("menu")} />
@@ -2197,6 +2274,14 @@ function TrackingScreen({ t, lang, activeOrder, setScreen, settings }) {
         <span className="sn-mono" style={{ fontSize: 22, fontWeight: 700 }}>{activeOrder.orderNumber}</span>
         <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "4px 0 0" }}>{activeOrder.table ? `${t.table} ${activeOrder.table} · ` : `${activeOrder.orderType} · `}{activeOrder.items.length} {t.items} · {fmt(activeOrder.total)}</p>
       </div>
+
+      {needsPayment && (
+        <div style={{ background: "#fff", border: "1px solid var(--wine)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--wine-dark)" }}>{t.completeYourPayment} — {fmt(activeOrder.total)}</p>
+          <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "3px 0 0" }}>{payMethod.label}</p>
+          <PaymentDetail method={payMethod} t={t} compact />
+        </div>
+      )}
 
       <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 16, padding: 20 }}>
         {CUSTOMER_STEPS.map((step, i) => {
@@ -3259,8 +3344,83 @@ function CustomersTab({ orders, reservations }) {
   );
 }
 
+const BLANK_PAYMENT = () => ({ id: "pm" + uid(), label: "", type: "person", note: "", url: "", image: "", enabled: true });
+
+function PaymentMethodsEditor({ value, onChange }) {
+  const list = value || [];
+  const L = { fontSize: 11, color: "rgba(255,255,255,0.55)", margin: "10px 0 4px", fontWeight: 600 };
+  const patch = (i, p) => onChange(list.map((m, j) => (j === i ? { ...m, ...p } : m)));
+  const remove = (i) => onChange(list.filter((_, j) => j !== i));
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  async function pickImage(i, e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    try { patch(i, { image: await fileToImageDataUrl(file, 800, 0.85) }); } catch { /* ignore */ }
+  }
+  return (
+    <div style={{ ...cardStyle, marginTop: 26 }}>
+      <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>Payment methods</p>
+      <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, margin: "0 0 10px" }}>
+        Shown to customers at checkout and on the order screen. <b>Pay in person</b> = label + instructions only.
+        <b> Pay now</b> = add a link (Venmo, Cash App, PayPal.me, a Stripe Payment Link, a Square checkout link — anything)
+        and/or upload a QR image; the app shows a tap-to-pay button and a scannable QR.
+      </p>
+      {list.map((m, i) => (
+        <div key={m.id || i} style={{ border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: 12, marginBottom: 10, background: m.enabled ? "transparent" : "rgba(255,255,255,0.03)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}>
+              <input type="checkbox" checked={m.enabled !== false} onChange={(e) => patch(i, { enabled: e.target.checked })} style={{ accentColor: "#D6482E" }} /> On
+            </label>
+            <select value={m.type === "online" ? "online" : "person"} onChange={(e) => patch(i, { type: e.target.value })} style={{ ...adminInput, width: "auto", padding: "6px 8px" }}>
+              <option value="person">Pay in person</option>
+              <option value="online">Pay now (link / QR)</option>
+            </select>
+            <span style={{ flex: 1 }} />
+            <button className="sn-btn" onClick={() => move(i, -1)} style={{ background: "var(--charcoal-3)", color: "#fff", borderRadius: 6, padding: "4px 8px", fontSize: 12 }}>↑</button>
+            <button className="sn-btn" onClick={() => move(i, 1)} style={{ background: "var(--charcoal-3)", color: "#fff", borderRadius: 6, padding: "4px 8px", fontSize: 12 }}>↓</button>
+            <button className="sn-btn" onClick={() => remove(i)} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 6, padding: "4px 8px", fontSize: 12 }}><Trash2 size={12} /></button>
+          </div>
+          <p style={L}>Label</p>
+          <input value={m.label} onChange={(e) => patch(i, { label: e.target.value })} placeholder="e.g. Pay at counter" style={adminInput} />
+          <p style={L}>Instructions shown to the customer</p>
+          <textarea rows={2} value={m.note} onChange={(e) => patch(i, { note: e.target.value })} style={{ ...adminInput, resize: "none" }} />
+          {m.type === "online" && (
+            <>
+              <p style={L}>Payment link (optional)</p>
+              <input value={m.url} onChange={(e) => patch(i, { url: e.target.value })} placeholder="https://venmo.com/…  ·  https://buy.stripe.com/…" style={adminInput} />
+              <p style={L}>…or upload a QR image (optional — used instead of the link's QR)</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {m.image && <img src={m.image} alt="" style={{ width: 44, height: 44, objectFit: "contain", background: "#fff", borderRadius: 6 }} />}
+                <label className="sn-btn" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                  <Plus size={12} /> {m.image ? "Replace" : "Upload"} QR
+                  <input type="file" accept="image/*" onChange={(e) => pickImage(i, e)} style={{ display: "none" }} />
+                </label>
+                {m.image && <button className="sn-btn" onClick={() => patch(i, { image: "" })} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "7px 10px", fontSize: 11.5 }}>Remove</button>}
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+      <button className="sn-btn" onClick={() => onChange([...list, BLANK_PAYMENT()])} style={{ background: "var(--charcoal-3)", color: "#fff", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700 }}>
+        <Plus size={12} /> Add payment method
+      </button>
+    </div>
+  );
+}
+
 function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
-  const [f, setF] = useState({ ...settings, taxPct: (settings.taxRate * 100).toString() });
+  const [f, setF] = useState({
+    ...settings,
+    taxPct: (settings.taxRate * 100).toString(),
+    paymentMethods: (settings.paymentMethods && settings.paymentMethods.length ? settings.paymentMethods : DEFAULT_SETTINGS.paymentMethods).map((m) => ({ ...m })),
+  });
   const [saved, setSaved] = useState(false);
   const [seedState, setSeedState] = useState("idle"); // idle | busy | done | error
   const [seedErr, setSeedErr] = useState("");
@@ -3282,11 +3442,22 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
   const L = { fontSize: 11, color: "rgba(255,255,255,0.55)", margin: "14px 0 4px", fontWeight: 600 };
 
   function save() {
+    const paymentMethods = (f.paymentMethods || [])
+      .map((m, i) => ({
+        id: m.id || "pm" + i,
+        label: (m.label || "").trim() || `Method ${i + 1}`,
+        type: m.type === "online" ? "online" : "person",
+        note: (m.note || "").trim(),
+        url: (m.url || "").trim(),
+        image: m.image || "",
+        enabled: m.enabled !== false,
+      }));
     setSettings({
       ...f,
       taxRate: (Number(f.taxPct) || 0) / 100,
       deliveryFee: Number(f.deliveryFee) || 0,
       tableCount: Math.max(1, Math.min(60, Number(f.tableCount) || 10)),
+      paymentMethods: paymentMethods.length ? paymentMethods : DEFAULT_SETTINGS.paymentMethods,
     });
     setSaved(true);
   }
@@ -3316,6 +3487,8 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
         <div><p style={L}>Currency</p><input value={f.currency} onChange={(e) => set("currency", e.target.value)} style={adminInput} /></div>
         <div><p style={L}>Tables (QR codes)</p><input type="number" value={f.tableCount ?? 10} onChange={(e) => set("tableCount", e.target.value)} style={adminInput} /></div>
       </div>
+      <PaymentMethodsEditor value={f.paymentMethods} onChange={(v) => set("paymentMethods", v)} />
+
       <button className="sn-btn" onClick={save} style={{ marginTop: 20, background: saved ? "var(--herb)" : "var(--wine)", color: "#fff", borderRadius: 9, padding: "11px 22px", fontSize: 13, fontWeight: 700 }}>
         {saved ? "Saved ✓" : "Save settings"}
       </button>
