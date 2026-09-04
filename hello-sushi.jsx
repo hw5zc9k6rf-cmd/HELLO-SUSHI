@@ -905,10 +905,12 @@ export default function App() {
       clearCart();
     } catch (e) {
       console.error("[Hello Sushi] placeOrder", e);
-      const soldOut = /no valid items/i.test(e?.message || "");
-      window.alert(soldOut
-        ? "Some items are no longer available. Please review your cart and try again."
-        : "Sorry — we couldn't place your order. Please try again, or ask a member of staff.");
+      const m = e?.message || "";
+      window.alert(
+        /no valid items/i.test(m) ? "Some items are no longer available. Please review your cart and try again."
+        : /just placed|too many|busy/i.test(m) ? m
+        : "Sorry — we couldn't place your order. Please try again, or ask a member of staff."
+      );
     } finally {
       setPlacing(false);
     }
@@ -1526,7 +1528,8 @@ function ReserveScreen({ t, settings, addReservation, setScreen }) {
       setDone(true);
     } catch (e) {
       console.error("[Hello Sushi] reservation", e);
-      setErr("Couldn't send your request. Please try again or call us.");
+      const m = e?.message || "";
+      setErr(/pending requests|busy/i.test(m) ? m : "Couldn't send your request. Please try again or call us.");
     } finally {
       setBusy(false);
     }

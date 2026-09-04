@@ -159,7 +159,25 @@ declare
   disc         numeric := 0;
   tax_amt      numeric := 0;
   grand        numeric := 0;
+  now_ms       bigint := (extract(epoch from now()) * 1000)::bigint;
+  tbl          text   := nullif(p_order->>'table_label', '');
 begin
+  -- ---- flood protection (won't hit a real service; a script will) ----
+  if (select count(*) from public.orders where placed_at > now_ms - 60000) >= 40 then
+    raise exception 'Ordering is busy right now — please try again in a moment';
+  end if;
+  if tbl is not null then
+    if (select count(*) from public.orders
+        where table_label = tbl and status not in ('Completed','Cancelled')
+          and placed_at > now_ms - 3600000) >= 12 then
+      raise exception 'Too many open orders for this table';
+    end if;
+    if (select count(*) from public.orders
+        where table_label = tbl and placed_at > now_ms - 20000) >= 1 then
+      raise exception 'An order was just placed for this table — please wait a moment';
+    end if;
+  end if;
+
   for ln in select elem from jsonb_array_elements(coalesce(p_order->'items', '[]'::jsonb)) as elem
   loop
     select * into mi from public.menu_items where id = (ln->>'itemId') limit 1;
@@ -230,7 +248,7 @@ begin
     delivery_fee, discount, total, items, scheduled_for
   ) values (
     'New',
-    (extract(epoch from now()) * 1000)::bigint,
+    now_ms,
     least(greatest(coalesce((p_order->>'est_minutes')::int, 20), 1), 240),
     nullif(p_order->>'table_label',''),
     left(nullif(p_order->>'name',''), 120),
@@ -270,6 +288,43 @@ create policy reservations_insert on public.reservations for insert to anon, aut
 create policy reservations_read   on public.reservations for select to authenticated using (true);
 create policy reservations_update on public.reservations for update to authenticated using (true) with check (true);
 create policy reservations_delete on public.reservations for delete to authenticated using (true);
+
+-- On every new reservation: force status/timestamp, length-cap the text,
+-- and rate-limit (per phone + global) so the list can't be flooded.
+create or replace function public.reservations_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare now_ms bigint := (extract(epoch from now()) * 1000)::bigint;
+begin
+  new.name    := left(coalesce(new.name, ''), 120);
+  new.phone   := left(coalesce(new.phone, ''), 40);
+  new.email   := left(coalesce(new.email, ''), 160);
+  new.request := left(coalesce(new.request, ''), 500);
+  new.date    := left(coalesce(new.date, ''), 20);
+  new.time    := left(coalesce(new.time, ''), 12);
+  new.guests  := least(greatest(coalesce(new.guests, 1), 1), 40);
+  new.status  := 'Pending';
+  new.created_at := now_ms;
+
+  if new.phone <> '' and (
+    select count(*) from public.reservations
+    where phone = new.phone and created_at > now_ms - 3600000
+  ) >= 3 then
+    raise exception 'You already have pending requests — please call us to add another';
+  end if;
+  if (select count(*) from public.reservations where created_at > now_ms - 600000) >= 30 then
+    raise exception 'Reservations are busy right now — please try again shortly';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists reservations_guard_trg on public.reservations;
+create trigger reservations_guard_trg
+  before insert on public.reservations
+  for each row execute function public.reservations_guard();
 
 -- ---------- realtime ------------------------------------------
 do $$
