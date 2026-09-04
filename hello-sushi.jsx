@@ -235,6 +235,7 @@ const DEFAULT_SETTINGS = {
   currency: "USD ($)",
   tableCount: 10,
   siteUrl: "",
+  soundAlerts: true, // play a chime in the admin dashboard when a new order arrives
   // Admin-editable in Settings → Payment methods.
   // type "person" = pay in person (label + note only)
   // type "online" = pay now: `url` (Venmo / Cash App / PayPal.me / Stripe Payment
@@ -301,6 +302,60 @@ function isToday(ts) {
  * the admin "Initialize database" button and the offline fallback. */
 
 const TIME_SLOTS = ["11:30", "12:00", "12:30", "13:00", "13:30", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"];
+
+/* -------------------------------------------------- staff order alerts */
+
+let _audioCtx = null;
+function unlockAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    _audioCtx = _audioCtx || new Ctx();
+    if (_audioCtx.state === "suspended") _audioCtx.resume();
+  } catch { /* ignore */ }
+}
+function playChime(times = 3) {
+  if (!_audioCtx) return;
+  try {
+    const ctx = _audioCtx;
+    const t0 = ctx.currentTime;
+    for (let i = 0; i < times; i++) {
+      const t = t0 + i * 0.3;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.setValueAtTime(1318, t + 0.12);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.32, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.28);
+    }
+  } catch { /* ignore */ }
+}
+function desktopNotify(title, body) {
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      const n = new Notification(title, { body, tag: "hello-sushi-order", renotify: true, icon: "/logo.png", badge: "/logo.png" });
+      setTimeout(() => { try { n.close(); } catch { /* */ } }, 9000);
+    }
+  } catch { /* ignore */ }
+}
+async function enableStaffAlerts() {
+  unlockAudio();
+  playChime(1);
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+  } catch { /* ignore */ }
+  try { localStorage.setItem("hs_alerts_on", "1"); } catch { /* ignore */ }
+}
+function alertsEnabledPref() {
+  try { return localStorage.getItem("hs_alerts_on") === "1"; } catch { return false; }
+}
 
 /* ------------------------------------------------------------- i18n */
 
@@ -636,7 +691,7 @@ export default function App() {
   const [catalogSource, setCatalogSource] = useState("bundled");
   const dbReadyRef = useRef(false);
   const adminAuthed = !!session;
-  const seenOrderCount = useRef(0);
+  const seenOrderIds = useRef(null);
   const t = T[lang] || T.en;
 
   const useBundled = () => { setCategoriesState(CATS); setMenuItemsState(MENU_ITEMS); dbReadyRef.current = false; setCatalogSource("bundled"); };
@@ -667,7 +722,7 @@ export default function App() {
       setReservations(d.reservations);
       if (d.content) setContent(d.content);
       if (d.settings) setSettings(d.settings);
-      seenOrderCount.current = d.orders.filter((o) => o.status !== "Cancelled").length;
+      seenOrderIds.current = new Set(d.orders.map((o) => o.id));
       setDataReady(true);
     }).catch((e) => {
       if (!alive) return;
@@ -702,17 +757,27 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // ---- new-order alert: chime + desktop notification + toast ----
   useEffect(() => {
-    const active = orders.filter((o) => o.status !== "Cancelled");
-    if (mode === "staff" && adminAuthed && active.length > seenOrderCount.current) {
-      const diff = active.length - seenOrderCount.current;
-      seenOrderCount.current = active.length;
-      setStaffToast(`${diff === 1 ? "New order" : `${diff} new orders`} received`);
-      const tm = setTimeout(() => setStaffToast(null), 3200);
-      return () => clearTimeout(tm);
-    }
-    seenOrderCount.current = active.length;
-  }, [orders, mode, adminAuthed]);
+    const ids = new Set(orders.map((o) => o.id));
+    if (seenOrderIds.current === null) { seenOrderIds.current = ids; return; }
+    const fresh = orders.filter((o) => !seenOrderIds.current.has(o.id) && o.status !== "Cancelled" && o.status !== "Completed");
+    seenOrderIds.current = ids;
+    if (!fresh.length || !adminAuthed) return;
+
+    const nums = fresh.map((o) => o.orderNumber).filter(Boolean);
+    const label = fresh.length === 1
+      ? `New order${nums[0] ? " " + nums[0] : ""}`
+      : `${fresh.length} new orders`;
+    setStaffToast(label);
+    if (settings.soundAlerts !== false) playChime();
+    desktopNotify(
+      `${settings.name || "Hello Sushi"} — ${label}`,
+      fresh.map((o) => `${o.orderNumber} · ${fmt(o.total)}${o.table ? " · Table " + o.table : o.orderType ? " · " + o.orderType : ""}`).join("\n")
+    );
+    const tm = setTimeout(() => setStaffToast(null), 7000);
+    return () => clearTimeout(tm);
+  }, [orders, adminAuthed, settings.soundAlerts, settings.name]);
 
   const activeOrder = orders.find((o) => o.id === activeOrderId)
     || (lookupOrderNumber && orders.find((o) => o.orderNumber && o.orderNumber.toUpperCase() === lookupOrderNumber))
@@ -2451,15 +2516,30 @@ const ADMIN_TABS = [
 function AdminApp(props) {
   const { staffTab, setStaffTab, staffToast, onLogout, settings, adminEmail, dbReady } = props;
   const needsSeed = ["menu", "categories", "content"].includes(staffTab) && !dbReady;
+  const [alertsOn, setAlertsOn] = useState(alertsEnabledPref());
+
+  // Browsers need a gesture to start audio — unlock on the first click anywhere.
+  useEffect(() => {
+    const h = () => { unlockAudio(); window.removeEventListener("pointerdown", h); };
+    window.addEventListener("pointerdown", h);
+    return () => window.removeEventListener("pointerdown", h);
+  }, []);
+
+  const notifState = typeof Notification !== "undefined" ? Notification.permission : "unsupported";
+  async function turnOnAlerts() {
+    await enableStaffAlerts();
+    setAlertsOn(true);
+  }
+
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 16px", color: "var(--paper)", position: "relative" }}>
       {staffToast && (
-        <div style={{ position: "fixed", top: 18, left: "50%", transform: "translateX(-50%)", background: "var(--gold)", color: "#3A2607", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, zIndex: 90, animation: "sn-toast-in 0.25s ease" }}>
-          <Bell size={14} /> {staffToast}
-        </div>
+        <button className="sn-btn" onClick={() => setStaffTab("kitchen")} style={{ position: "fixed", top: 18, left: "50%", transform: "translateX(-50%)", background: "var(--gold)", color: "#3A2607", padding: "12px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 8, zIndex: 90, animation: "sn-toast-in 0.25s ease", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}>
+          <Bell size={15} /> {staffToast} — view →
+        </button>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Logo height={38} chip style={{ padding: "6px 10px" }} />
           <div>
@@ -2467,10 +2547,26 @@ function AdminApp(props) {
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", margin: "2px 0 0" }}>{adminEmail ? `Signed in as ${adminEmail}` : "Restaurant management"}</p>
           </div>
         </div>
-        <button className="sn-btn" onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-2)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "7px 14px", fontSize: 12, fontWeight: 600 }}>
-          <LogOut size={13} /> Sign out
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {alertsOn && notifState === "granted" ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(94,140,106,0.18)", color: "var(--herb)", border: "1px solid rgba(94,140,106,0.4)", borderRadius: 999, padding: "7px 12px", fontSize: 11.5, fontWeight: 700 }}>
+              <Bell size={12} /> Alerts on
+            </span>
+          ) : (
+            <button className="sn-btn" onClick={turnOnAlerts} title="Play a chime and show a desktop notification for every new order" style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--wine)", color: "#fff", borderRadius: 999, padding: "7px 14px", fontSize: 11.5, fontWeight: 700 }}>
+              <Bell size={12} /> {notifState === "denied" ? "Enable sound alerts" : "Enable order alerts"}
+            </button>
+          )}
+          <button className="sn-btn" onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-2)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "7px 14px", fontSize: 12, fontWeight: 600 }}>
+            <LogOut size={13} /> Sign out
+          </button>
+        </div>
       </div>
+      {alertsOn && notifState === "denied" && (
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", margin: "-8px 0 14px" }}>
+          Desktop notifications are blocked in your browser — the chime and in-app banner still work. Re-allow notifications in the browser's site settings for pop-up alerts.
+        </p>
+      )}
 
       <div className="sn-scroll" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.12)", overflowX: "auto" }}>
         {ADMIN_TABS.map((tb) => {
@@ -3529,6 +3625,21 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
         <div><p style={L}>Currency</p><input value={f.currency} onChange={(e) => set("currency", e.target.value)} style={adminInput} /></div>
         <div><p style={L}>Tables (QR codes)</p><input type="number" value={f.tableCount ?? 10} onChange={(e) => set("tableCount", e.target.value)} style={adminInput} /></div>
       </div>
+      <div style={{ ...cardStyle, marginTop: 18 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>New-order alerts</p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 6 }}>
+          <input type="checkbox" checked={f.soundAlerts !== false} onChange={(e) => set("soundAlerts", e.target.checked)} style={{ accentColor: "#D6482E" }} />
+          Play a chime in the dashboard when a new order comes in
+        </label>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "8px 0 0" }}>
+          Also shows an in-app banner and, if allowed, a desktop notification. Each device turns this on once with the
+          <b> Enable order alerts</b> button at the top of the dashboard (browsers require that for sound + notifications).
+        </p>
+        <button className="sn-btn" onClick={() => { unlockAudio(); playChime(2); }} style={{ marginTop: 10, background: "var(--charcoal-3)", color: "#fff", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700 }}>
+          <Bell size={12} /> Test chime
+        </button>
+      </div>
+
       <PaymentMethodsEditor value={f.paymentMethods} onChange={(v) => set("paymentMethods", v)} />
 
       <button className="sn-btn" onClick={save} style={{ marginTop: 20, background: saved ? "var(--herb)" : "var(--wine)", color: "#fff", borderRadius: 9, padding: "11px 22px", fontSize: 13, fontWeight: 700 }}>
