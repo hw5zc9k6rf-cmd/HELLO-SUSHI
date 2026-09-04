@@ -2534,6 +2534,39 @@ function TrackingScreen({ t, lang, activeOrder, setScreen, settings }) {
 /* ADMIN                                                            */
 /* =============================================================== */
 
+/* Technical-support contact shown on the admin sign-in screen.
+ * QR image: put the file at  public/support-qr.png
+ * Link (optional): a wa.me / chat link, used for the "Open WhatsApp" button. */
+const SUPPORT_QR_SRC = "/support-qr.png";
+const SUPPORT_WHATSAPP_URL = ""; // e.g. "https://wa.me/16155551234" or "https://wa.me/message/ABC123"
+
+function SupportBlock({ dark = true }) {
+  const [imgOk, setImgOk] = useState(true);
+  const muted = dark ? "rgba(255,255,255,0.55)" : "var(--ink-soft)";
+  return (
+    <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? "rgba(255,255,255,0.1)" : "var(--line)"}`, textAlign: "center" }}>
+      <p style={{ fontSize: 12, fontWeight: 700, margin: 0, color: dark ? "var(--gold-soft)" : "var(--ink)" }}>Technical support</p>
+      <p style={{ fontSize: 11, color: muted, margin: "4px 0 10px", lineHeight: 1.5 }}>
+        Any technical issues, errors or problems? Scan the QR code to reach our technical support team on WhatsApp — we're here to help.
+      </p>
+      {imgOk ? (
+        <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
+          <img src={SUPPORT_QR_SRC} alt="WhatsApp support QR" onError={() => setImgOk(false)} style={{ width: 132, height: 132, display: "block" }} />
+        </div>
+      ) : SUPPORT_WHATSAPP_URL ? (
+        <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
+          <QR text={SUPPORT_WHATSAPP_URL} size={132} />
+        </div>
+      ) : null}
+      {SUPPORT_WHATSAPP_URL && (
+        <div>
+          <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 11.5, fontWeight: 700, color: "#25D366", textDecoration: "none" }}>Open WhatsApp →</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminLogin() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -2574,7 +2607,7 @@ function AdminLogin() {
         />
         {err && <p style={{ fontSize: 11.5, color: "#F0A5A8", margin: "6px 0 0" }}>{err}</p>}
         <button className="sn-btn" onClick={submit} disabled={busy} style={{ width: "100%", marginTop: 14, background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "12px", fontSize: 13.5, fontWeight: 700, opacity: busy ? 0.6 : 1 }}>{busy ? "Signing in…" : "Sign in"}</button>
-        <p style={{ fontSize: 10.5, color: "rgba(255,255,255,0.35)", margin: "12px 0 0" }}>Accounts are created in the Supabase dashboard.</p>
+        <SupportBlock />
       </div>
     </div>
   );
