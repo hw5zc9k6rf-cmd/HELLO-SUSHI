@@ -50,6 +50,7 @@ function orderToRow(o) {
     discount: num(o.discount),
     total: num(o.total),
     items: o.items || [],
+    scheduled_for: o.scheduledFor ?? null,
   };
 }
 function rowToOrder(r) {
@@ -73,6 +74,7 @@ function rowToOrder(r) {
     status: r.status,
     placedAt: Number(r.placed_at),
     estMinutes: r.est_minutes,
+    scheduledFor: r.scheduled_for != null ? Number(r.scheduled_for) : null,
   };
 }
 

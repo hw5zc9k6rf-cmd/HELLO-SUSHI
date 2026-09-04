@@ -237,6 +237,8 @@ const DEFAULT_SETTINGS = {
   tableCount: 10,
   siteUrl: "",
   soundAlerts: true, // play a chime in the admin dashboard when a new order arrives
+  preorderEnabled: true, // let customers schedule an order for a later time
+  preorderMaxDays: 7,    // how many days ahead a pre-order can be placed
   // Admin-editable in Settings → Payment methods.
   // type "person" = pay in person (label + note only)
   // type "online" = pay now: `url` (Venmo / Cash App / PayPal.me / Stripe Payment
@@ -285,6 +287,19 @@ function fmt(n) {
 }
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+function fmtSchedule(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  } catch { return new Date(ts).toLocaleString(); }
+}
+// time "HH:MM" is in the future for the given yyyy-mm-dd date string
+function slotTs(dateStr, hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date(dateStr + "T00:00:00");
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
 }
 function dayStr(offset = 0) {
   const d = new Date();
@@ -388,6 +403,7 @@ const T = {
     orderNotFound: "Order not found", orderNotFoundHelp: "This order link can't be opened here. Please check with a staff member.",
     qrNote: "The restaurant's payment QR code will be shown at checkout.", selectLanguage: "Language",
     payNow: "Pay now", howToPay: "How to pay", completeYourPayment: "Complete your payment", paymentPending: "Payment pending",
+    when: "When", asap: "As soon as possible", scheduleLater: "Schedule for later", preorder: "Pre-order", scheduledFor: "Scheduled for", pickDate: "Date", pickTime: "Time",
     add: "Add", reviews: "reviews", allergens: "Allergens", contains: "Contains",
     heroIntro: "A delightful escape into authentic Asian cuisine on Nolensville Pike — sushi, Burmese, Thai and Chinese dishes, in both classic and modern interpretations.",
     viewMenu: "View Menu", orderNow: "Order Now", featured: "Featured dishes", browseCategories: "Browse by category",
@@ -435,6 +451,7 @@ const T = {
     orderNotFound: "အော်ဒါ ရှာမတွေ့ပါ", orderNotFoundHelp: "ဤအော်ဒါလင့်ခ်ကို ဖွင့်၍မရပါ။ ဝန်ထမ်းတစ်ဦးဦးအား မေးမြန်းပါ။",
     qrNote: "ဆိုင်၏ ငွေပေးချေမှု QR ကုဒ်ကို ငွေရှင်းချိန်တွင် ပြသပါမည်။", selectLanguage: "ဘာသာစကား",
     payNow: "ယခုပေးချေရန်", howToPay: "ငွေပေးချေနည်း", completeYourPayment: "ငွေပေးချေမှု ပြီးမြောက်စေရန်", paymentPending: "ငွေပေးချေရန် ကျန်ရှိ",
+    when: "အချိန်", asap: "အမြန်ဆုံး", scheduleLater: "နောက်မှ အချိန်သတ်မှတ်ရန်", preorder: "ကြိုတင်မှာယူ", scheduledFor: "သတ်မှတ်အချိန်", pickDate: "ရက်စွဲ", pickTime: "အချိန်",
     add: "ထည့်ရန်", reviews: "သုံးသပ်ချက်", allergens: "ဓာတ်မတည့်စာ", contains: "ပါဝင်သည်",
     heroIntro: "Nolensville Pike ပေါ်ရှိ စစ်မှန်သော အာရှအစားအစာများ — ဆူရှီ၊ မြန်မာ၊ ထိုင်းနှင့် တရုတ် ဟင်းလျာများ။",
     viewMenu: "မီနူးကြည့်ရန်", orderNow: "အခုမှာမည်", featured: "အထူးဟင်းလျာများ", browseCategories: "အမျိုးအစားဖြင့် ရှာရန်",
@@ -482,6 +499,7 @@ const T = {
     orderNotFound: "未找到订单", orderNotFoundHelp: "无法在此打开该订单链接，请咨询工作人员。",
     qrNote: "餐厅的付款二维码将在结算时显示。", selectLanguage: "语言",
     payNow: "立即支付", howToPay: "如何支付", completeYourPayment: "完成支付", paymentPending: "待支付",
+    when: "时间", asap: "尽快", scheduleLater: "预约稍后时间", preorder: "预订", scheduledFor: "预约时间", pickDate: "日期", pickTime: "时间",
     add: "添加", reviews: "条评价", allergens: "过敏原", contains: "含有",
     heroIntro: "位于 Nolensville Pike 的正宗亚洲美食——寿司、缅甸、泰式与中式菜肴，兼具经典与现代演绎。",
     viewMenu: "查看菜单", orderNow: "立即点餐", featured: "招牌菜品", browseCategories: "按分类浏览",
@@ -529,6 +547,7 @@ const T = {
     orderNotFound: "Pedido no encontrado", orderNotFoundHelp: "Este enlace de pedido no se puede abrir aquí. Consulta con un miembro del personal.",
     qrNote: "El código QR de pago del restaurante se mostrará al finalizar la compra.", selectLanguage: "Idioma",
     payNow: "Pagar ahora", howToPay: "Cómo pagar", completeYourPayment: "Completa tu pago", paymentPending: "Pago pendiente",
+    when: "Cuándo", asap: "Lo antes posible", scheduleLater: "Programar para más tarde", preorder: "Pedido anticipado", scheduledFor: "Programado para", pickDate: "Fecha", pickTime: "Hora",
     add: "Añadir", reviews: "reseñas", allergens: "Alérgenos", contains: "Contiene",
     heroIntro: "Una escapada a la auténtica cocina asiática en Nolensville Pike: sushi, birmana, tailandesa y china, en versiones clásicas y modernas.",
     viewMenu: "Ver menú", orderNow: "Pedir ahora", featured: "Platos destacados", browseCategories: "Explorar por categoría",
@@ -576,6 +595,7 @@ const T = {
     orderNotFound: "ไม่พบออร์เดอร์", orderNotFoundHelp: "ไม่สามารถเปิดลิงก์ออร์เดอร์นี้ได้ กรุณาสอบถามพนักงาน",
     qrNote: "คิวอาร์โค้ดสำหรับชำระเงินของร้านจะแสดงตอนชำระเงิน", selectLanguage: "ภาษา",
     payNow: "ชำระเงินตอนนี้", howToPay: "วิธีชำระเงิน", completeYourPayment: "ชำระเงินให้เสร็จสิ้น", paymentPending: "รอชำระเงิน",
+    when: "เมื่อไหร่", asap: "โดยเร็วที่สุด", scheduleLater: "กำหนดเวลาภายหลัง", preorder: "สั่งล่วงหน้า", scheduledFor: "กำหนดเวลา", pickDate: "วันที่", pickTime: "เวลา",
     add: "เพิ่ม", reviews: "รีวิว", allergens: "สารก่อภูมิแพ้", contains: "มีส่วนผสมของ",
     heroIntro: "การพักผ่อนสู่อาหารเอเชียแท้บนถนน Nolensville Pike — ซูชิ พม่า ไทย และจีน ทั้งแบบดั้งเดิมและร่วมสมัย",
     viewMenu: "ดูเมนู", orderNow: "สั่งเลย", featured: "เมนูแนะนำ", browseCategories: "เลือกตามหมวดหมู่",
@@ -681,7 +701,7 @@ export default function App() {
   const [menuItemsState, setMenuItemsState] = useState([]);
   const [categoriesState, setCategoriesState] = useState([]);
   const [content, setContent] = useState(DEFAULT_CONTENT);
-  const [checkoutForm, setCheckoutForm] = useState({ name: "", phone: "", email: "", instructions: "", payment: "Pay at counter", orderType: "Dine-in" });
+  const [checkoutForm, setCheckoutForm] = useState({ name: "", phone: "", email: "", instructions: "", payment: "Pay at counter", orderType: "Dine-in", scheduledFor: null });
   const [staffTab, setStaffTab] = useState("overview");
   const [staffToast, setStaffToast] = useState(null);
   const [session, setSession] = useState(null);
@@ -768,13 +788,13 @@ export default function App() {
 
     const nums = fresh.map((o) => o.orderNumber).filter(Boolean);
     const label = fresh.length === 1
-      ? `New order${nums[0] ? " " + nums[0] : ""}`
+      ? `New ${fresh[0].scheduledFor ? "pre-order" : "order"}${nums[0] ? " " + nums[0] : ""}`
       : `${fresh.length} new orders`;
     setStaffToast(label);
     if (settings.soundAlerts !== false) playChime();
     desktopNotify(
       `${settings.name || "Hello Sushi"} — ${label}`,
-      fresh.map((o) => `${o.orderNumber} · ${fmt(o.total)}${o.table ? " · Table " + o.table : o.orderType ? " · " + o.orderType : ""}`).join("\n")
+      fresh.map((o) => `${o.orderNumber} · ${fmt(o.total)}${o.scheduledFor ? " · ⏰ " + fmtSchedule(o.scheduledFor) : o.table ? " · Table " + o.table : o.orderType ? " · " + o.orderType : ""}`).join("\n")
     );
     const tm = setTimeout(() => setStaffToast(null), 7000);
     return () => clearTimeout(tm);
@@ -2225,6 +2245,22 @@ function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cart
     if (checkoutForm.payment !== selected.label) setCheckoutForm({ ...checkoutForm, payment: selected.label });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const preorderOn = settings.preorderEnabled !== false;
+  const maxDays = Math.max(1, Math.min(60, Number(settings.preorderMaxDays) || 7));
+  const [schedMode, setSchedMode] = useState(checkoutForm.scheduledFor ? "later" : "asap");
+  const [schedDate, setSchedDate] = useState(checkoutForm.scheduledFor ? dayStr(0) : dayStr(0));
+  const [schedTime, setSchedTime] = useState(checkoutForm.scheduledFor ? "" : TIME_SLOTS[0]);
+  useEffect(() => {
+    if (schedMode === "asap") { if (checkoutForm.scheduledFor) setCheckoutForm({ ...checkoutForm, scheduledFor: null }); return; }
+    const ts = schedTime ? slotTs(schedDate, schedTime) : null;
+    if (ts !== checkoutForm.scheduledFor) setCheckoutForm({ ...checkoutForm, scheduledFor: ts });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedMode, schedDate, schedTime]);
+  const schedInvalid = schedMode === "later" && (!checkoutForm.scheduledFor || checkoutForm.scheduledFor < Date.now() + 5 * 60000);
+  // today's slots that have already passed shouldn't be selectable
+  const slots = schedDate === dayStr(0) ? TIME_SLOTS.filter((s) => slotTs(schedDate, s) > Date.now() + 15 * 60000) : TIME_SLOTS;
+
   return (
     <div style={{ minHeight: 640, display: "flex", flexDirection: "column" }}>
       <ScreenHeader title={t.checkout} onBack={() => setScreen("cart")} />
@@ -2237,6 +2273,37 @@ function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cart
             </button>
           ))}
         </div>
+
+        {preorderOn && (
+          <>
+            <FieldLabel>{t.when}</FieldLabel>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["asap", t.asap], ["later", t.scheduleLater]].map(([id, label]) => (
+                <button key={id} className="sn-btn" onClick={() => setSchedMode(id)} style={{ flex: 1, padding: "9px 6px", borderRadius: 10, fontSize: 12.5, fontWeight: 600, border: `1px solid ${schedMode === id ? "var(--wine)" : "var(--line)"}`, background: schedMode === id ? "var(--wine)" : "#fff", color: schedMode === id ? "#fff" : "var(--ink)" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {schedMode === "later" && (
+              <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <FieldLabel>{t.pickDate}</FieldLabel>
+                  <input type="date" value={schedDate} min={dayStr(0)} max={dayStr(maxDays)} onChange={(e) => setSchedDate(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FieldLabel>{t.pickTime}</FieldLabel>
+                  <select value={schedTime} onChange={(e) => setSchedTime(e.target.value)} style={inputStyle}>
+                    <option value="">—</option>
+                    {slots.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            {schedMode === "later" && checkoutForm.scheduledFor && !schedInvalid && (
+              <p style={{ fontSize: 11.5, color: "var(--herb-dark)", margin: "6px 2px 0", fontWeight: 600 }}>{t.preorder}: {fmtSchedule(checkoutForm.scheduledFor)}</p>
+            )}
+          </>
+        )}
 
         <FieldLabel>{t.name}</FieldLabel>
         <input value={checkoutForm.name} onChange={(e) => setCheckoutForm({ ...checkoutForm, name: e.target.value })} style={inputStyle} />
@@ -2280,8 +2347,9 @@ function CheckoutScreen({ t, settings, checkoutForm, setCheckoutForm, cart, cart
       </div>
 
       <div style={{ padding: "16px 20px 20px" }}>
-        <button className="sn-btn" onClick={placeOrder} disabled={placing} style={{ width: "100%", background: placing ? "var(--ink-soft)" : "var(--wine)", color: "#fff", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          {placing ? t.placing : `${t.placeOrder} — ${fmt(cartTotals.total)}`}
+        {schedInvalid && <p style={{ fontSize: 11.5, color: "var(--wine)", textAlign: "center", margin: "0 0 8px" }}>Pick a pickup date and time.</p>}
+        <button className="sn-btn" onClick={placeOrder} disabled={placing || schedInvalid} style={{ width: "100%", background: placing || schedInvalid ? "var(--ink-soft)" : "var(--wine)", color: "#fff", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          {placing ? t.placing : `${checkoutForm.scheduledFor ? t.preorder : t.placeOrder} — ${fmt(cartTotals.total)}`}
         </button>
       </div>
     </div>
@@ -2331,7 +2399,9 @@ function ConfirmationScreen({ t, activeOrder, setScreen, settings }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, color: "var(--ink-soft)" }}>
           <Clock size={13} />
-          <span style={{ fontSize: 12 }}>{t.estimated} {activeOrder.estMinutes} {t.min}</span>
+          <span style={{ fontSize: 12 }}>
+            {activeOrder.scheduledFor ? `${t.scheduledFor} ${fmtSchedule(activeOrder.scheduledFor)}` : `${t.estimated} ${activeOrder.estMinutes} ${t.min}`}
+          </span>
         </div>
       </div>
 
@@ -2390,6 +2460,7 @@ function TrackingScreen({ t, lang, activeOrder, setScreen, settings }) {
       <div style={{ textAlign: "center", marginBottom: 22 }}>
         <span className="sn-mono" style={{ fontSize: 22, fontWeight: 700 }}>{activeOrder.orderNumber}</span>
         <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "4px 0 0" }}>{activeOrder.table ? `${t.table} ${activeOrder.table} · ` : `${activeOrder.orderType} · `}{activeOrder.items.length} {t.items} · {fmt(activeOrder.total)}</p>
+        {activeOrder.scheduledFor && <p style={{ fontSize: 12, color: "var(--herb-dark)", fontWeight: 700, margin: "4px 0 0", display: "inline-flex", alignItems: "center", gap: 5 }}><Clock3 size={12} /> {t.preorder} · {fmtSchedule(activeOrder.scheduledFor)}</p>}
       </div>
 
       {needsPayment && (
@@ -2667,6 +2738,7 @@ function OverviewTab({ orders, reservations, menuItems }) {
     { label: "Avg. order value", value: fmt(aov) },
     { label: "Customers", value: customers },
     { label: "Pending reservations", value: reservations.filter((r) => r.status === "Pending").length },
+    { label: "Upcoming pre-orders", value: orders.filter((o) => o.scheduledFor && o.scheduledFor > Date.now() && !["Cancelled", "Completed"].includes(o.status)).length },
   ];
 
   const popularity = {};
@@ -2705,7 +2777,7 @@ function KitchenTab({ orders, advanceStatus, cancelOrder }) {
   return (
     <div className="sn-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12 }}>
       {STAFF_STATUSES.map((status) => {
-        const list = orders.filter((o) => o.status === status).sort((a, b) => a.placedAt - b.placedAt);
+        const list = orders.filter((o) => o.status === status).sort((a, b) => (a.scheduledFor || a.placedAt) - (b.scheduledFor || b.placedAt));
         return (
           <div key={status} style={{ flexShrink: 0, width: 240 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -2737,7 +2809,12 @@ function OrderTicket({ order, advanceStatus, cancelOrder }) {
         <span className="sn-mono" style={{ fontSize: 14, fontWeight: 700 }}>{order.orderNumber}</span>
         <span style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}><Clock size={11} /> {time}</span>
       </div>
-      <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "2px 0 8px" }}>
+      {order.scheduledFor && (
+        <p style={{ fontSize: 11, fontWeight: 800, color: "#8A3D12", background: "#FFE9CC", borderRadius: 6, padding: "3px 7px", margin: "6px 0 0", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          ⏰ Pre-order · {fmtSchedule(order.scheduledFor)}
+        </p>
+      )}
+      <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "4px 0 8px" }}>
         {order.table ? `Table ${order.table}` : order.orderType}{order.name ? ` · ${order.name}` : ""}
       </p>
       <div style={{ borderTop: "1px dashed var(--line)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
@@ -2824,7 +2901,7 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteO
         {filtered.map((o) => (
           <button key={o.id} className="sn-btn" onClick={() => setDetail(o.id)} style={{ width: "100%", textAlign: "left", display: "grid", gridTemplateColumns: "90px 1fr 90px 90px 80px 120px", gap: 8, padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "none", color: "#fff", fontSize: 12.5, alignItems: "center" }}>
             <span className="sn-mono" style={{ fontWeight: 700 }}>{o.orderNumber}</span>
-            <span>{o.name || "Guest"}{o.table ? ` · T${o.table}` : ""}</span>
+            <span>{o.scheduledFor ? "⏰ " : ""}{o.name || "Guest"}{o.table ? ` · T${o.table}` : ""}</span>
             <span style={{ color: "rgba(255,255,255,0.6)" }}>{o.orderType}</span>
             <span style={{ fontWeight: 700 }}>{fmt(o.total)}</span>
             <span style={{ color: "rgba(255,255,255,0.6)" }}>{o.items.reduce((s, l) => s + l.qty, 0)}</span>
@@ -2843,6 +2920,9 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteO
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "4px 0 0" }}>
               {new Date(detailOrder.placedAt).toLocaleString()} · {detailOrder.orderType}{detailOrder.table ? ` · Table ${detailOrder.table}` : ""}
             </p>
+            {detailOrder.scheduledFor && (
+              <p style={{ fontSize: 12, fontWeight: 800, color: "#FFCE93", margin: "6px 0 0", display: "inline-flex", alignItems: "center", gap: 5 }}>⏰ Pre-order for {fmtSchedule(detailOrder.scheduledFor)}</p>
+            )}
             <p style={{ fontSize: 12.5, margin: "10px 0 0" }}>{detailOrder.name || "Guest"} {detailOrder.phone ? `· ${detailOrder.phone}` : ""}</p>
             {detailOrder.email && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "2px 0 0" }}>{detailOrder.email}</p>}
 
@@ -2940,6 +3020,7 @@ function ReceiptModal({ order, settings, onClose }) {
           <div style={{ borderTop: "1px dashed #999", borderBottom: "1px dashed #999", padding: "8px 0", margin: "8px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>{order.orderNumber}</span><span>{new Date(order.placedAt).toLocaleString()}</span></div>
             <div>{order.orderType}{order.table ? ` · Table ${order.table}` : ""}{order.name ? ` · ${order.name}` : ""}</div>
+            {order.scheduledFor && <div style={{ fontWeight: 700 }}>PRE-ORDER: {fmtSchedule(order.scheduledFor)}</div>}
           </div>
           {order.items.map((l) => (
             <div key={l.cartId} style={{ margin: "4px 0" }}>
@@ -3641,6 +3722,7 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
       taxRate: (Number(f.taxPct) || 0) / 100,
       deliveryFee: Number(f.deliveryFee) || 0,
       tableCount: Math.max(1, Math.min(60, Number(f.tableCount) || 10)),
+      preorderMaxDays: Math.max(1, Math.min(60, Number(f.preorderMaxDays) || 7)),
       paymentMethods: paymentMethods.length ? paymentMethods : DEFAULT_SETTINGS.paymentMethods,
     });
     setSaved(true);
@@ -3672,6 +3754,21 @@ function SettingsTab({ settings, setSettings, seedDatabase, dbReady }) {
         <div><p style={L}>Tables (QR codes)</p><input type="number" value={f.tableCount ?? 10} onChange={(e) => set("tableCount", e.target.value)} style={adminInput} /></div>
       </div>
       <div style={{ ...cardStyle, marginTop: 18 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>Pre-orders</p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 6 }}>
+          <input type="checkbox" checked={f.preorderEnabled !== false} onChange={(e) => set("preorderEnabled", e.target.checked)} style={{ accentColor: "#D6482E" }} />
+          Let customers schedule an order for a later time
+        </label>
+        <div style={{ maxWidth: 200, marginTop: 10 }}>
+          <p style={L}>How many days ahead</p>
+          <input type="number" min="1" max="60" value={f.preorderMaxDays ?? 7} onChange={(e) => set("preorderMaxDays", e.target.value)} style={adminInput} />
+        </div>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, margin: "8px 0 0" }}>
+          Pre-orders show up in the kitchen right away with an ⏰ badge and their scheduled time; the board sorts them by pickup time.
+        </p>
+      </div>
+
+      <div style={{ ...cardStyle, marginTop: 14 }}>
         <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 4px", color: "var(--gold-soft)" }}>New-order alerts</p>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 6 }}>
           <input type="checkbox" checked={f.soundAlerts !== false} onChange={(e) => set("soundAlerts", e.target.checked)} style={{ accentColor: "#D6482E" }} />

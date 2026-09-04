@@ -45,8 +45,10 @@ create table if not exists public.orders (
   discount      numeric not null default 0,
   total         numeric not null default 0,
   items         jsonb   not null default '[]'::jsonb,
+  scheduled_for bigint,  -- epoch ms for a pre-order; null = ASAP
   created_at    timestamptz not null default now()
 );
+alter table public.orders add column if not exists scheduled_for bigint;
 
 create table if not exists public.reservations (
   id         uuid primary key default gen_random_uuid(),
