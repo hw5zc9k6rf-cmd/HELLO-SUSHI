@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import {
   loadAll, fetchOrders, fetchReservations, fetchMenuItems, fetchCategories,
   fetchContent, fetchSettings, db, watch, auth, seedFromDefaults, supabaseConfigured,
+  storageUpload, storageDelete,
 } from "./src/db.js";
 import {
   Search, ShoppingCart, X, Plus, Minus, Leaf, Flame, ChevronLeft,
@@ -1734,6 +1735,44 @@ function fileToImageDataUrl(file, maxDim = 1000, quality = 0.82) {
   });
 }
 
+// Resize an image file and return a JPEG Blob (for uploading to Supabase Storage).
+function fileToResizedBlob(file, maxDim = 1400, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxDim / Math.max(width, height || 1));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("encode failed"))), "image/jpeg", quality);
+        } catch (e) { reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Upload a menu/payment image: resize -> Supabase Storage -> return the public
+// URL. Falls back to an inline data URL if Storage isn't reachable/set up.
+async function uploadPhoto(file, folder = "items") {
+  const blob = await fileToResizedBlob(file);
+  try {
+    return await storageUpload(blob, folder);
+  } catch (e) {
+    console.warn("[Hello Sushi] storage upload failed, storing image inline:", e?.message || e);
+    return await fileToImageDataUrl(file);
+  }
+}
+
 function FoodTile({ item, lang, cats, onClick, fav, onFav }) {
   return (
     <div className="sn-card" onClick={onClick} style={{ flexShrink: 0, width: 150, cursor: "pointer", background: "#fff", border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden" }}>
@@ -3062,14 +3101,20 @@ function ItemEditor({ item, categories, onCancel, onSave }) {
     if (!file) return;
     if (!file.type.startsWith("image/")) { setImgErr("Please choose an image file."); return; }
     setImgErr(""); setImgBusy(true);
+    const prev = f.image;
     try {
-      const dataUrl = await fileToImageDataUrl(file);
-      set("image", dataUrl);
+      const url = await uploadPhoto(file, "items");
+      set("image", url);
+      storageDelete(prev);
     } catch {
-      setImgErr("Couldn't read that image.");
+      setImgErr("Couldn't process that image.");
     } finally {
       setImgBusy(false);
     }
+  }
+  function removePhoto() {
+    storageDelete(f.image);
+    set("image", "");
   }
 
   function save() {
@@ -3120,7 +3165,7 @@ function ItemEditor({ item, categories, onCancel, onSave }) {
               <input type="file" accept="image/*" onChange={onPhotoFile} style={{ display: "none" }} />
             </label>
             {f.image && (
-              <button className="sn-btn" onClick={() => set("image", "")} style={{ marginLeft: 8, background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 700 }}>Remove</button>
+              <button className="sn-btn" onClick={removePhoto} style={{ marginLeft: 8, background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 700 }}>Remove</button>
             )}
             <p style={L}>…or paste an image URL</p>
             <input value={(f.image || "").startsWith("data:") ? "" : (f.image || "")} placeholder="https://…/photo.jpg" onChange={(e) => set("image", e.target.value.trim())} style={adminInput} />
@@ -3500,7 +3545,8 @@ function PaymentMethodsEditor({ value, onChange }) {
     const file = e.target.files && e.target.files[0];
     e.target.value = "";
     if (!file || !file.type.startsWith("image/")) return;
-    try { patch(i, { image: await fileToImageDataUrl(file, 800, 0.85) }); } catch { /* ignore */ }
+    const prev = list[i] && list[i].image;
+    try { patch(i, { image: await uploadPhoto(file, "payments") }); storageDelete(prev); } catch { /* ignore */ }
   }
   return (
     <div style={{ ...cardStyle, marginTop: 26 }}>
@@ -3540,7 +3586,7 @@ function PaymentMethodsEditor({ value, onChange }) {
                   <Plus size={12} /> {m.image ? "Replace" : "Upload"} QR
                   <input type="file" accept="image/*" onChange={(e) => pickImage(i, e)} style={{ display: "none" }} />
                 </label>
-                {m.image && <button className="sn-btn" onClick={() => patch(i, { image: "" })} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "7px 10px", fontSize: 11.5 }}>Remove</button>}
+                {m.image && <button className="sn-btn" onClick={() => { storageDelete(m.image); patch(i, { image: "" }); }} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "7px 10px", fontSize: 11.5 }}>Remove</button>}
               </div>
             </>
           )}

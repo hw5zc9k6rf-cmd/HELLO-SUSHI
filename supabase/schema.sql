@@ -135,3 +135,17 @@ begin
     end;
   end loop;
 end $$;
+
+-- ---------- storage: "menu" bucket (item photos, payment QR) --
+insert into storage.buckets (id, name, public)
+  values ('menu', 'menu', true)
+  on conflict (id) do update set public = true;
+
+drop policy if exists "menu public read"  on storage.objects;
+drop policy if exists "menu staff insert" on storage.objects;
+drop policy if exists "menu staff update" on storage.objects;
+drop policy if exists "menu staff delete" on storage.objects;
+create policy "menu public read"  on storage.objects for select using (bucket_id = 'menu');
+create policy "menu staff insert" on storage.objects for insert to authenticated with check (bucket_id = 'menu');
+create policy "menu staff update" on storage.objects for update to authenticated using (bucket_id = 'menu') with check (bucket_id = 'menu');
+create policy "menu staff delete" on storage.objects for delete to authenticated using (bucket_id = 'menu');

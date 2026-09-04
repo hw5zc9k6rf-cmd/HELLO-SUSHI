@@ -62,6 +62,32 @@ persists.
 Until you run it, the app shows the built-in menu in **preview mode** (an amber
 banner) and the Menu / Categories / Content admin tabs are locked.
 
+## Photo storage
+
+Menu-item photos and payment QR images upload to a public Supabase Storage
+bucket called **`menu`** (resized to ~1400px JPEG first). The `supabase/schema.sql`
+above creates it. If you set the project up before this was added, run just this
+in the SQL Editor:
+
+```sql
+insert into storage.buckets (id, name, public)
+  values ('menu', 'menu', true)
+  on conflict (id) do update set public = true;
+
+drop policy if exists "menu public read"  on storage.objects;
+drop policy if exists "menu staff insert" on storage.objects;
+drop policy if exists "menu staff update" on storage.objects;
+drop policy if exists "menu staff delete" on storage.objects;
+create policy "menu public read"  on storage.objects for select using (bucket_id = 'menu');
+create policy "menu staff insert" on storage.objects for insert to authenticated with check (bucket_id = 'menu');
+create policy "menu staff update" on storage.objects for update to authenticated using (bucket_id = 'menu') with check (bucket_id = 'menu');
+create policy "menu staff delete" on storage.objects for delete to authenticated using (bucket_id = 'menu');
+```
+
+Anyone can view the images (public bucket); only signed-in staff can upload,
+replace or delete. If the bucket is missing, uploads fall back to storing the
+image inline in the row (still works, just heavier).
+
 ## How access is enforced (RLS)
 
 | Table | anonymous customer | signed-in staff |

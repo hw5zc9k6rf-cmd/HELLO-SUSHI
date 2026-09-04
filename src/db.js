@@ -220,6 +220,32 @@ export function watch(refetchers) {
 }
 
 /* ------------------------------------------------------------------ *
+ *  Storage (menu photos, payment QR images) — public "menu" bucket
+ * ------------------------------------------------------------------ */
+
+const BUCKET = "menu";
+
+export async function storageUpload(blob, folder = "items") {
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
+    contentType: "image/jpeg",
+    cacheControl: "31536000",
+    upsert: false,
+  });
+  if (error) throw error;
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+export async function storageDelete(url) {
+  try {
+    const marker = `/object/public/${BUCKET}/`;
+    const i = (url || "").indexOf(marker);
+    if (i === -1) return; // not one of ours (data: URL, external URL, etc.)
+    await supabase.storage.from(BUCKET).remove([url.slice(i + marker.length)]);
+  } catch { /* best effort */ }
+}
+
+/* ------------------------------------------------------------------ *
  *  Auth
  * ------------------------------------------------------------------ */
 
