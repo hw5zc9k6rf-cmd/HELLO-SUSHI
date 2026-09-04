@@ -289,6 +289,11 @@ function fmt(n) {
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
+// only allow http(s) links to reach an href / window.open (blocks javascript:, data:, etc.)
+function safeUrl(u) {
+  const s = (u || "").trim();
+  return /^https?:\/\//i.test(s) ? s : "";
+}
 function fmtSchedule(ts) {
   if (!ts) return "";
   try {
@@ -877,7 +882,7 @@ export default function App() {
     }
   }
 
-  const dbFail = (e) => window.alert("Could not save — " + (e?.message || e));
+  const dbFail = (e) => { console.error("[Hello Sushi]", e); window.alert("Couldn't save that change. Please check your connection and try again."); };
 
   async function placeOrder() {
     if (placing) return;
@@ -899,7 +904,11 @@ export default function App() {
       setCustomerScreen("confirmation");
       clearCart();
     } catch (e) {
-      window.alert("Could not place your order — " + (e?.message || e));
+      console.error("[Hello Sushi] placeOrder", e);
+      const soldOut = /no valid items/i.test(e?.message || "");
+      window.alert(soldOut
+        ? "Some items are no longer available. Please review your cart and try again."
+        : "Sorry — we couldn't place your order. Please try again, or ask a member of staff.");
     } finally {
       setPlacing(false);
     }
@@ -1396,7 +1405,7 @@ function HomeScreen({ t, lang, settings, content, menuItems, cats, reviews, canO
           <span style={{ display: "flex", alignItems: "center", gap: 9 }}><Mail size={14} style={{ color: "var(--wine)" }} /> {settings.email}</span>
           <span style={{ display: "flex", alignItems: "center", gap: 9 }}><Clock3 size={14} style={{ color: "var(--wine)" }} /> {settings.hours}</span>
           <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-            <a href={settings.mapUrl} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: "center", background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "9px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>{t.getDirections}</a>
+            <a href={safeUrl(settings.mapUrl)} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: "center", background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "9px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>{t.getDirections}</a>
             <button className="sn-btn" onClick={() => setScreen("reserve")} style={{ flex: 1, background: "var(--paper-dim)", color: "var(--ink)", borderRadius: 10, padding: "9px", fontSize: 12, fontWeight: 700 }}>{t.navBook}</button>
           </div>
         </div>
@@ -1490,8 +1499,8 @@ function ContactScreen({ t, settings, setScreen }) {
           <button className="sn-btn" onClick={() => setScreen("menu")} style={{ flex: 1, background: "var(--paper-dim)", color: "var(--ink)", borderRadius: 12, padding: "13px", fontSize: 13, fontWeight: 700 }}>{t.viewMenu}</button>
         </div>
         <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 6, fontSize: 12, fontWeight: 600 }}>
-          {settings.facebook && <a href={settings.facebook} target="_blank" rel="noreferrer" style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Facebook</a>}
-          {settings.instagram && <a href={settings.instagram} target="_blank" rel="noreferrer" style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Instagram</a>}
+          {safeUrl(settings.facebook) && <a href={safeUrl(settings.facebook)} target="_blank" rel="noreferrer" style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Facebook</a>}
+          {safeUrl(settings.instagram) && <a href={safeUrl(settings.instagram)} target="_blank" rel="noreferrer" style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Instagram</a>}
         </div>
       </div>
       <Footer t={t} settings={settings} setScreen={setScreen} />
@@ -1516,7 +1525,8 @@ function ReserveScreen({ t, settings, addReservation, setScreen }) {
       await addReservation(form);
       setDone(true);
     } catch (e) {
-      setErr(e?.message || "Could not send your request. Please call us.");
+      console.error("[Hello Sushi] reservation", e);
+      setErr("Couldn't send your request. Please try again or call us.");
     } finally {
       setBusy(false);
     }
@@ -1902,10 +1912,10 @@ function Footer({ t, settings, setScreen }) {
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Phone size={13} /> {settings.phone}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Clock3 size={13} /> {settings.hours}</span>
       </div>
-      {(settings.facebook || settings.instagram) && (
+      {(safeUrl(settings.facebook) || safeUrl(settings.instagram)) && (
         <div style={{ display: "flex", gap: 14, marginTop: 14, fontSize: 11.5, fontWeight: 600 }}>
-          {settings.facebook && <a href={settings.facebook} target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Facebook</a>}
-          {settings.instagram && <a href={settings.instagram} target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Instagram</a>}
+          {safeUrl(settings.facebook) && <a href={safeUrl(settings.facebook)} target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Facebook</a>}
+          {safeUrl(settings.instagram) && <a href={safeUrl(settings.instagram)} target="_blank" rel="noreferrer" style={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: 5, textDecoration: "none" }}><Share2 size={13} /> Instagram</a>}
         </div>
       )}
       {setScreen && (
@@ -2287,7 +2297,7 @@ function PaymentDetail({ method, t, compact = false }) {
             <div style={{ background: "#fff", padding: 8, borderRadius: 8 }}><QR text={method.url} size={compact ? 96 : 120} /></div>
           )}
           {hasUrl && isHttpUrl(method.url) && (
-            <a href={method.url} target="_blank" rel="noreferrer" style={{ background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "11px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+            <a href={safeUrl(method.url)} target="_blank" rel="noreferrer" style={{ background: "var(--wine)", color: "#fff", borderRadius: 10, padding: "11px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
               {t.payNow} →
             </a>
           )}
