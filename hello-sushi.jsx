@@ -835,12 +835,13 @@ export default function App() {
   const activeCats = useMemo(() => categoriesState.filter((c) => c.active).sort((a, b) => a.order - b.order), [categoriesState]);
 
   const cartTotals = useMemo(() => {
-    const subtotal = cart.reduce((s, l) => s + l.unitPrice * l.qty, 0);
-    const tax = subtotal * settings.taxRate;
-    const service = subtotal * (settings.serviceRate || 0);
-    const deliveryFee = checkoutForm.orderType === "Delivery" && cart.length ? settings.deliveryFee : 0;
-    const discount = promoApplied ? subtotal * ((Number(content.promoDiscountPct) || 0) / 100) : 0;
-    const total = Math.max(0, subtotal + tax + service + deliveryFee - discount);
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const subtotal = r2(cart.reduce((s, l) => s + l.unitPrice * l.qty, 0));
+    const tax = r2(subtotal * (settings.taxRate || 0));
+    const service = r2(subtotal * (settings.serviceRate || 0));
+    const deliveryFee = checkoutForm.orderType === "Delivery" && cart.length ? r2(settings.deliveryFee || 0) : 0;
+    const discount = promoApplied ? r2(subtotal * ((Number(content.promoDiscountPct) || 0) / 100)) : 0;
+    const total = Math.max(0, r2(subtotal + tax + service + deliveryFee - discount));
     return { subtotal, tax, service, deliveryFee, discount, total };
   }, [cart, promoApplied, checkoutForm.orderType, settings, content.promoDiscountPct]);
 
@@ -887,6 +888,7 @@ export default function App() {
         items: cart,
         ...checkoutForm,
         ...cartTotals,
+        promoCode: promoApplied ? promoCode.trim() : "",
         status: "New",
         placedAt: Date.now(),
         estMinutes: 15 + Math.floor(cart.length * 1.5),

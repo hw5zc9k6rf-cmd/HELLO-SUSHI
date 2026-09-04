@@ -51,6 +51,7 @@ function orderToRow(o) {
     total: num(o.total),
     items: o.items || [],
     scheduled_for: o.scheduledFor ?? null,
+    promo_code: o.promoCode ?? "",
   };
 }
 function rowToOrder(r) {

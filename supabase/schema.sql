@@ -122,16 +122,108 @@ create policy orders_insert on public.orders for insert to authenticated with ch
 create policy orders_update on public.orders for update to authenticated using (true) with check (true);
 create policy orders_delete on public.orders for delete to authenticated using (true);
 
--- Place an order (anon-callable). Forces status='New' and a server
--- timestamp; clamps negatives. Returns the new row incl. track_token.
+-- Place an order (anon-callable). The SERVER prices every line from the
+-- menu_items table (ignoring any prices the client sent), applies tax /
+-- service / delivery / promo from settings + content, forces status='New'
+-- and a server timestamp, and rebuilds the items list so it matches the
+-- total. Returns the new row incl. track_token.
 create or replace function public.place_order(p_order jsonb)
 returns public.orders
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare r public.orders;
+declare
+  r             public.orders;
+  s_data       jsonb := coalesce((select data from public.settings where id = 'default'), '{}'::jsonb);
+  c_data       jsonb := coalesce((select data from public.content  where id = 'default'), '{}'::jsonb);
+  tax_rate     numeric := greatest(coalesce((s_data->>'taxRate')::numeric, 0), 0);
+  service_rate numeric := greatest(coalesce((s_data->>'serviceRate')::numeric, 0), 0);
+  delivery_cfg numeric := greatest(coalesce((s_data->>'deliveryFee')::numeric, 0), 0);
+  promo_code   text := upper(trim(coalesce(c_data->>'promoCode', '')));
+  promo_pct    numeric := greatest(least(coalesce((c_data->>'promoDiscountPct')::numeric, 0), 100), 0);
+  o_type       text := left(coalesce(p_order->>'order_type', ''), 40);
+  ln           jsonb;
+  mi           public.menu_items;
+  q            int;
+  lp           numeric;
+  sz_name      text;
+  dlt          numeric;
+  ad           jsonb;
+  adp          numeric;
+  clean_ads    jsonb;
+  out_items    jsonb := '[]'::jsonb;
+  subtotal     numeric := 0;
+  svc          numeric := 0;
+  delv         numeric := 0;
+  disc         numeric := 0;
+  tax_amt      numeric := 0;
+  grand        numeric := 0;
 begin
+  for ln in select elem from jsonb_array_elements(coalesce(p_order->'items', '[]'::jsonb)) as elem
+  loop
+    select * into mi from public.menu_items where id = (ln->>'itemId') limit 1;
+    if not found or mi.available is false then
+      continue;
+    end if;
+
+    q  := least(greatest(coalesce((ln->>'qty')::int, 1), 1), 50);
+    lp := coalesce((mi.data->>'price')::numeric, 0);
+
+    sz_name := ln->>'size';
+    if sz_name is not null and sz_name <> '' then
+      select coalesce((sz->>'delta')::numeric, 0) into dlt
+      from jsonb_array_elements(coalesce(mi.data->'sizes', '[]'::jsonb)) as sz
+      where sz->>'name' = sz_name
+      limit 1;
+      lp := lp + coalesce(dlt, 0);
+    end if;
+
+    clean_ads := '[]'::jsonb;
+    for ad in select elem from jsonb_array_elements(coalesce(ln->'addons', '[]'::jsonb)) as elem
+    loop
+      select coalesce((a->>'price')::numeric, 0) into adp
+      from jsonb_array_elements(coalesce(mi.data->'addons', '[]'::jsonb)) as a
+      where a->>'en' = ad->>'en'
+      limit 1;
+      if found then
+        lp := lp + coalesce(adp, 0);
+        clean_ads := clean_ads || jsonb_build_object('en', ad->>'en', 'price', coalesce(adp, 0));
+      end if;
+    end loop;
+
+    lp := round(greatest(lp, 0), 2);
+    subtotal := subtotal + lp * q;
+
+    out_items := out_items || jsonb_build_object(
+      'cartId', coalesce(ln->>'cartId', gen_random_uuid()::text),
+      'itemId', mi.id,
+      'name',  coalesce(mi.data->>'en', ln->>'name'),
+      'icon',  mi.data->>'icon',
+      'image', coalesce(mi.data->>'image', ''),
+      'size',  sz_name,
+      'spice', ln->>'spice',
+      'addons', clean_ads,
+      'instructions', left(coalesce(ln->>'instructions', ''), 200),
+      'unitPrice', lp,
+      'qty', q
+    );
+  end loop;
+
+  if subtotal <= 0 then
+    raise exception 'No valid items in order';
+  end if;
+
+  if o_type = 'Delivery' then
+    delv := delivery_cfg;
+  end if;
+  svc := round(subtotal * service_rate, 2);
+  if promo_code <> '' and upper(trim(coalesce(p_order->>'promo_code', ''))) = promo_code then
+    disc := round(subtotal * (promo_pct / 100.0), 2);
+  end if;
+  tax_amt := round(subtotal * tax_rate, 2);
+  grand   := greatest(round(subtotal, 2) + tax_amt + svc + delv - disc, 0);
+
   insert into public.orders (
     status, placed_at, est_minutes, table_label, name, phone, email,
     instructions, payment, order_type, subtotal, tax, service,
@@ -146,14 +238,9 @@ begin
     left(nullif(p_order->>'email',''), 160),
     left(nullif(p_order->>'instructions',''), 500),
     left(nullif(p_order->>'payment',''), 80),
-    left(nullif(p_order->>'order_type',''), 40),
-    greatest(coalesce((p_order->>'subtotal')::numeric, 0), 0),
-    greatest(coalesce((p_order->>'tax')::numeric, 0), 0),
-    greatest(coalesce((p_order->>'service')::numeric, 0), 0),
-    greatest(coalesce((p_order->>'delivery_fee')::numeric, 0), 0),
-    greatest(coalesce((p_order->>'discount')::numeric, 0), 0),
-    greatest(coalesce((p_order->>'total')::numeric, 0), 0),
-    coalesce(p_order->'items', '[]'::jsonb),
+    o_type,
+    round(subtotal, 2), tax_amt, svc, delv, disc, round(grand, 2),
+    out_items,
     (p_order->>'scheduled_for')::bigint
   ) returning * into r;
   return r;

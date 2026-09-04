@@ -90,12 +90,18 @@ image inline in the row (still works, just heavier).
 
 ## Order privacy
 
-Customers **cannot read the `orders` table** — it holds every customer's name,
-phone and email. They place an order through the `place_order()` function and
-track it through `get_order(token)` using an unguessable per-order token
-(`track_token`, in the order-tracking URL/QR). Only signed-in staff can list
-orders. Re-run `supabase/schema.sql` to apply this (it adds the `track_token`
-column and the two functions).
+Customers **cannot read or write the `orders` table** — it holds every
+customer's name, phone and email. They place an order through the
+`place_order()` function and track it through `get_order(token)` using an
+unguessable per-order token (`track_token`, in the order-tracking URL/QR). Only
+signed-in staff can list orders.
+
+`place_order()` **re-prices every line from the `menu_items` table** and
+recomputes tax / service / delivery / promo from `settings` + `content` — the
+prices, totals and discount the browser sends are ignored, so they can't be
+tampered with. It also forces `status='New'` and a server timestamp.
+
+Re-run `supabase/schema.sql` whenever these change (it's `create or replace`).
 
 ## How access is enforced (RLS)
 
