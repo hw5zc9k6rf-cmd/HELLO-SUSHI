@@ -12,7 +12,7 @@ import {
   Heart, ChevronDown, ArrowUpDown, Sparkles, MapPin, Phone, Clock3,
   Home, BookOpen, CalendarDays, Users, Settings as SettingsIcon, Lock,
   Pencil, Trash2, ArrowUp, ArrowDown, Mail, Share2, ListOrdered,
-  FolderTree, LogOut, LayoutDashboard, Copy, Download, ExternalLink
+  FolderTree, LogOut, LayoutDashboard, Copy, Download, ExternalLink, Upload
 } from "lucide-react";
 
 /* ---------------------------------------------------------- languages */
@@ -354,6 +354,26 @@ function itemsSummary(items) {
     return `${l.qty}× ${l.name}${extras ? ` (${extras})` : ""}`;
   }).join("; ");
 }
+
+// Parse CSV text (RFC-4180-ish: quotes, escaped "", commas + newlines in cells).
+function parseCsv(text) {
+  const s = String(text || "").replace(/\r\n?/g, "\n").replace(/^﻿/, "");
+  const rows = [];
+  let row = [], cell = "", q = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (q) {
+      if (ch === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+const csvTruthy = (v) => /^(y|yes|true|1|x|✓|on)$/i.test(String(v || "").trim());
 
 /* Live data (orders, reservations, menu, categories, content, settings) is
  * loaded from Supabase at runtime — see src/db.js. The constants above
@@ -2896,7 +2916,7 @@ function AdminApp(props) {
       {staffTab === "kitchen" && <KitchenTab orders={props.orders} advanceStatus={props.advanceStatus} cancelOrder={props.cancelOrder} />}
       {staffTab === "orders" && <OrdersTab orders={props.orders} advanceStatus={props.advanceStatus} setOrderStatus={props.setOrderStatus} cancelOrder={props.cancelOrder} deleteOrder={props.deleteOrder} clearOrders={props.clearOrders} settings={settings} />}
       {staffTab === "reservations" && <ReservationsTab reservations={props.reservations} updateReservation={props.updateReservation} deleteReservation={props.deleteReservation} clearReservations={props.clearReservations} />}
-      {staffTab === "menu" && <MenuManageTab menuItems={props.menuItems} categories={props.categories} toggleSoldOut={props.toggleSoldOut} saveMenuItem={props.saveMenuItem} deleteMenuItem={props.deleteMenuItem} />}
+      {staffTab === "menu" && <MenuManageTab menuItems={props.menuItems} categories={props.categories} toggleSoldOut={props.toggleSoldOut} saveMenuItem={props.saveMenuItem} deleteMenuItem={props.deleteMenuItem} saveCategory={props.saveCategory} />}
       {staffTab === "categories" && <CategoriesTab categories={props.categories} saveCategory={props.saveCategory} deleteCategory={props.deleteCategory} moveCategory={props.moveCategory} menuItems={props.menuItems} />}
       {staffTab === "tables" && <TablesTab orders={props.orders} settings={settings} />}
       {staffTab === "content" && <ContentTab content={props.content} setContent={props.setContent} menuItems={props.menuItems} />}
@@ -3412,11 +3432,106 @@ function ReservationsTab({ reservations, updateReservation, deleteReservation, c
 
 const BLANK_ITEM = () => ({ id: "n" + uid(), category: "Starters", price: 0, icon: "🍽️", image: "", rating: 4.5, popular: false, recommended: false, isNew: true, available: true, veg: false, spicy: false, allergens: [], en: "", mm: "", zh: "", es: "", th: "", descEn: "" });
 
-function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, deleteMenuItem }) {
+function newMenuCategory(name, order) {
+  return { id: name, en: name, mm: "", zh: "", es: "", th: "", icon: "🍽️", order, active: true };
+}
+
+/* Turn a pasted / uploaded CSV into an import plan. Columns match the
+ * "Export CSV" output (Item, Category, Price, Availability, Popular,
+ * Vegetarian, Spicy, Allergens, Description). Only Item + Price are
+ * required; unknown columns are ignored. Items are matched to existing
+ * ones by English name (case-insensitive) — a match updates, no match
+ * creates. Category names that don't exist yet are queued for creation. */
+function analyzeMenuCsv(text, menuItems, categories) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return { error: "That file has a header row but no menu items below it." };
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const col = (...names) => { for (const n of names) { const k = header.indexOf(n); if (k >= 0) return k; } return -1; };
+  const cItem = col("item", "name", "dish", "english name");
+  const cPrice = col("price", "price (usd)", "price usd", "$");
+  if (cItem < 0 || cPrice < 0) {
+    return { error: 'The header row needs at least an "Item" column and a "Price" column. Tip: press "Export CSV" first to get a file in the right shape, edit that, then import it.' };
+  }
+  const cCat = col("category", "section", "menu category");
+  const cAvail = col("availability", "available", "in stock", "status");
+  const cPop = col("popular", "featured", "guest favourite", "guest favorite");
+  const cVeg = col("vegetarian", "veg", "vegan");
+  const cSpicy = col("spicy", "hot");
+  const cAllerg = col("allergens", "allergen", "contains");
+  const cDesc = col("description", "desc", "details");
+
+  const byName = {};
+  menuItems.forEach((i) => { const k = (i.en || "").trim().toLowerCase(); if (k) byName[k] = i; });
+  const catKey = {};
+  categories.forEach((c) => { catKey[(c.en || "").trim().toLowerCase()] = c; catKey[(c.id || "").trim().toLowerCase()] = c; });
+  const fallbackCat = (categories[0] && categories[0].id) || "Starters";
+
+  const plan = [];
+  const warnings = [];
+  const newCats = [];
+  const seen = new Set();
+
+  rows.slice(1).forEach((r, idx) => {
+    const rn = idx + 2; // spreadsheet row number
+    const name = (r[cItem] || "").trim();
+    if (!name) { warnings.push(`Row ${rn}: blank item name — skipped.`); return; }
+    const nk = name.toLowerCase();
+    if (seen.has(nk)) { warnings.push(`Row ${rn} (${name}): duplicate of an earlier row — skipped.`); return; }
+
+    const priceStr = (r[cPrice] || "").replace(/[^0-9.\-]/g, "");
+    const price = Number(priceStr);
+    if (priceStr === "" || Number.isNaN(price) || price < 0) {
+      warnings.push(`Row ${rn} (${name}): price "${(r[cPrice] || "").trim()}" isn't a valid number — skipped.`);
+      return;
+    }
+
+    const existing = byName[nk];
+    let category = existing ? existing.category : fallbackCat;
+    const catRaw = cCat >= 0 ? (r[cCat] || "").trim() : "";
+    if (catRaw) {
+      const hit = catKey[catRaw.toLowerCase()];
+      if (hit) category = hit.id;
+      else {
+        category = catRaw;
+        if (!newCats.some((n) => n.toLowerCase() === catRaw.toLowerCase())) newCats.push(catRaw);
+      }
+    }
+
+    let available = existing ? existing.available !== false : true;
+    if (cAvail >= 0) {
+      const a = (r[cAvail] || "").trim().toLowerCase();
+      if (a) available = !["sold out", "soldout", "sold", "no", "n", "false", "0", "off", "out", "unavailable", "86"].includes(a);
+    }
+
+    const patch = { price, category, available };
+    if (cPop >= 0 && (r[cPop] || "").trim() !== "") patch.popular = csvTruthy(r[cPop]);
+    if (cVeg >= 0 && (r[cVeg] || "").trim() !== "") patch.veg = csvTruthy(r[cVeg]);
+    if (cSpicy >= 0 && (r[cSpicy] || "").trim() !== "") patch.spicy = csvTruthy(r[cSpicy]);
+    if (cAllerg >= 0) patch.allergens = (r[cAllerg] || "").split(/[,;|/]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (cDesc >= 0 && (r[cDesc] || "").trim() !== "") patch.descEn = (r[cDesc] || "").trim();
+
+    const item = existing ? { ...existing, ...patch } : { ...BLANK_ITEM(), en: name, ...patch };
+    plan.push({ action: existing ? "update" : "new", name, category, price, item });
+    seen.add(nk);
+  });
+
+  return { plan, warnings, newCats, updates: plan.filter((p) => p.action === "update").length, creates: plan.filter((p) => p.action === "new").length };
+}
+
+function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, deleteMenuItem, saveCategory }) {
   const [editing, setEditing] = useState(null);
   const [catFilter, setCatFilter] = useState("All");
+  const [importOpen, setImportOpen] = useState(false);
   const list = catFilter === "All" ? menuItems : menuItems.filter((i) => i.category === catFilter);
   const catName = (id) => { const c = categories.find((x) => x.id === id); return c ? c.en : id; };
+
+  function runImport(plan) {
+    const startOrder = categories.reduce((m, c) => Math.max(m, c.order || 0), 0);
+    (plan.newCats || []).forEach((nm, k) => saveCategory(newMenuCategory(nm, startOrder + 1 + k)));
+    plan.plan.forEach((p) => saveMenuItem(p.item));
+    setImportOpen(false);
+    window.alert(`Imported: ${plan.creates} new item${plan.creates === 1 ? "" : "s"}, ${plan.updates} updated${plan.newCats && plan.newCats.length ? `, ${plan.newCats.length} new categor${plan.newCats.length === 1 ? "y" : "ies"}` : ""}.`);
+  }
 
   function exportCsv() {
     const header = ["Item", "Category", "Price", "Availability", "Popular", "Vegetarian", "Spicy", "Allergens", "Description"];
@@ -3443,6 +3558,9 @@ function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, del
         </select>
         <span style={{ flex: 1 }} />
         <ExportButton onClick={exportCsv} disabled={!list.length} count={list.length} />
+        <button className="sn-btn" onClick={() => setImportOpen(true)} title="Bulk-add or update menu items from a spreadsheet (CSV)" style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: "#9FD3AC", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 9, padding: "9px 14px", fontSize: 12, fontWeight: 700 }}>
+          <Upload size={13} /> Import CSV
+        </button>
         <button className="sn-btn" onClick={() => setEditing(BLANK_ITEM())} style={{ background: "var(--wine)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
           <Plus size={14} /> Add menu item
         </button>
@@ -3478,6 +3596,106 @@ function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, del
           onSave={(it) => { saveMenuItem(it); setEditing(null); }}
         />
       )}
+      {importOpen && (
+        <MenuImportModal
+          menuItems={menuItems}
+          categories={categories}
+          onCancel={() => setImportOpen(false)}
+          onImport={runImport}
+          onDownloadTemplate={() => downloadCsv("hello-sushi-menu-template.csv", [
+            ["Item", "Category", "Price", "Availability", "Popular", "Vegetarian", "Spicy", "Allergens", "Description"],
+            ["Salmon Nigiri", "A La Carte", "6.00", "Available", "Yes", "", "", "fish", "Two pieces over seasoned rice."],
+            ["Miso Soup", "Soups", "3.50", "Available", "", "Yes", "", "soy", "Tofu, seaweed, scallion."],
+          ])}
+        />
+      )}
+    </div>
+  );
+}
+
+function MenuImportModal({ menuItems, categories, onCancel, onImport, onDownloadTemplate }) {
+  const [raw, setRaw] = useState("");
+  const [err, setErr] = useState("");
+  const plan = useMemo(() => (raw.trim() ? analyzeMenuCsv(raw, menuItems, categories) : null), [raw, menuItems, categories]);
+
+  async function onFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try { setRaw(await file.text()); setErr(""); }
+    catch { setErr("Couldn't read that file."); }
+  }
+
+  const ok = plan && !plan.error && plan.plan && plan.plan.length > 0;
+  const rowStyle = { display: "grid", gridTemplateColumns: "60px 1fr 110px 64px", gap: 8, padding: "7px 10px", fontSize: 12, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.07)" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: 16, overflowY: "auto" }} onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--charcoal-2)", borderRadius: 14, maxWidth: 560, width: "100%", padding: 22, color: "#fff", margin: "20px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <p className="sn-serif" style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--gold-soft)" }}>Import menu from CSV</p>
+          <button className="sn-btn" onClick={onCancel} style={{ background: "none", color: "rgba(255,255,255,0.6)" }}><X size={18} /></button>
+        </div>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, margin: "0 0 12px" }}>
+          Columns: <b>Item</b>, <b>Category</b>, <b>Price</b>, then optionally Availability, Popular, Vegetarian, Spicy, Allergens, Description.
+          Items are matched by their English name — a match <b>updates</b> price / category / flags, a new name <b>adds</b> an item.
+          New category names are created automatically. Photos and translations are set per item in the editor, not here.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <label className="sn-btn" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--wine)", color: "#fff", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            <Upload size={13} /> Choose CSV file
+            <input type="file" accept=".csv,text/csv,text/plain" onChange={onFile} style={{ display: "none" }} />
+          </label>
+          <button className="sn-btn" onClick={onDownloadTemplate} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: "rgba(255,255,255,0.8)", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700 }}>
+            <Download size={13} /> Download template
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", margin: "0 0 4px" }}>…or paste CSV / spreadsheet rows here</p>
+        <textarea rows={5} value={raw} onChange={(e) => setRaw(e.target.value)} placeholder={"Item,Category,Price\nSalmon Nigiri,A La Carte,6.00"} style={{ ...adminInput, resize: "vertical", fontFamily: "ui-monospace, monospace", fontSize: 11.5 }} />
+        {err && <p style={{ fontSize: 12, color: "#F0A5A8", margin: "8px 0 0" }}>{err}</p>}
+        {plan && plan.error && <p style={{ fontSize: 12, color: "#F0A5A8", margin: "10px 0 0", lineHeight: 1.6 }}>{plan.error}</p>}
+
+        {plan && !plan.error && (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 12.5, fontWeight: 700, margin: "0 0 6px" }}>
+              {plan.creates} new · {plan.updates} updated
+              {plan.newCats.length > 0 && <span style={{ color: "var(--gold)" }}> · {plan.newCats.length} new categor{plan.newCats.length === 1 ? "y" : "ies"}</span>}
+            </p>
+            {plan.newCats.length > 0 && (
+              <p style={{ fontSize: 11, color: "var(--gold)", margin: "0 0 8px" }}>Will create category: {plan.newCats.join(", ")} — check the spelling matches your existing sections.</p>
+            )}
+            {plan.plan.length > 0 && (
+              <div style={{ background: "var(--charcoal-3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, maxHeight: 220, overflowY: "auto" }}>
+                <div style={{ ...rowStyle, borderTop: "none", fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: "rgba(255,255,255,0.45)", fontWeight: 700 }}>
+                  <span>Action</span><span>Item</span><span>Category</span><span>Price</span>
+                </div>
+                {plan.plan.slice(0, 60).map((p, i) => (
+                  <div key={i} style={rowStyle}>
+                    <span style={{ color: p.action === "new" ? "#9FD3AC" : "rgba(255,255,255,0.55)", fontWeight: 700, fontSize: 10.5 }}>{p.action === "new" ? "ADD" : "UPDATE"}</span>
+                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                    <span style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.category}</span>
+                    <span>{fmt(p.price)}</span>
+                  </div>
+                ))}
+                {plan.plan.length > 60 && <div style={{ ...rowStyle, color: "rgba(255,255,255,0.4)" }}><span /><span>+{plan.plan.length - 60} more…</span><span /><span /></div>}
+              </div>
+            )}
+            {plan.warnings.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 11, color: "#F0C98A", lineHeight: 1.6 }}>
+                {plan.warnings.slice(0, 8).map((w, i) => <p key={i} style={{ margin: 0 }}>⚠ {w}</p>)}
+                {plan.warnings.length > 8 && <p style={{ margin: 0 }}>…and {plan.warnings.length - 8} more.</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button className="sn-btn" onClick={onCancel} style={{ background: "var(--charcoal-3)", color: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "9px 16px", fontSize: 12.5, fontWeight: 700 }}>Cancel</button>
+          <button className="sn-btn" disabled={!ok} onClick={() => onImport(plan)} style={{ background: ok ? "var(--wine)" : "var(--charcoal-3)", color: ok ? "#fff" : "rgba(255,255,255,0.3)", borderRadius: 8, padding: "9px 18px", fontSize: 12.5, fontWeight: 700 }}>
+            Import {ok ? plan.plan.length : ""} item{ok && plan.plan.length === 1 ? "" : "s"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
