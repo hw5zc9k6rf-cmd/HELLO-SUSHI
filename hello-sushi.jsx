@@ -319,6 +319,42 @@ function isToday(ts) {
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
 }
 
+/* --- CSV export (opens in Excel / Numbers / Google Sheets) ----- */
+function csvCell(v) {
+  if (v == null) return "";
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function toCsv(rows) {
+  return rows.map((r) => (r || []).map(csvCell).join(",")).join("\r\n");
+}
+function downloadCsv(filename, rows) {
+  try {
+    const blob = new Blob(["\ufeff" + toCsv(rows)], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch { /* ignore */ }
+}
+function csvStamp() {
+  return new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+}
+function fmtDateTime(ts) {
+  if (!ts) return "";
+  try { return new Date(ts).toLocaleString(); } catch { return String(ts); }
+}
+function itemsSummary(items) {
+  return (items || []).map((l) => {
+    const extras = [l.size, l.spice, ...((l.addons || []).map((a) => a.en || a))].filter(Boolean).join(" / ");
+    return `${l.qty}× ${l.name}${extras ? ` (${extras})` : ""}`;
+  }).join("; ");
+}
+
 /* Live data (orders, reservations, menu, categories, content, settings) is
  * loaded from Supabase at runtime — see src/db.js. The constants above
  * (MENU_ITEMS, CATS, DEFAULT_CONTENT, DEFAULT_SETTINGS) are the payload for
@@ -2876,6 +2912,20 @@ function EmptyNote({ text }) {
 const cardStyle = { background: "var(--charcoal-2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px" };
 const adminInput = { width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.16)", background: "var(--charcoal-3)", color: "#fff", fontSize: 12.5, outline: "none", fontFamily: "inherit" };
 
+function ExportButton({ onClick, disabled, label = "Export CSV", count }) {
+  return (
+    <button
+      className="sn-btn"
+      onClick={onClick}
+      disabled={disabled}
+      title="Download a spreadsheet (CSV — opens in Excel, Numbers or Google Sheets)"
+      style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--charcoal-3)", color: disabled ? "rgba(255,255,255,0.3)" : "#9FD3AC", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 9, padding: "9px 14px", fontSize: 12, fontWeight: 700 }}
+    >
+      <Download size={13} /> {label}{count ? ` (${count})` : ""}
+    </button>
+  );
+}
+
 function OverviewTab({ orders, reservations, menuItems }) {
   const active = orders.filter((o) => o.status !== "Cancelled");
   const todaysOrders = active.filter((o) => isToday(o.placedAt));
@@ -2898,10 +2948,37 @@ function OverviewTab({ orders, reservations, menuItems }) {
 
   const popularity = {};
   active.forEach((o) => o.items.forEach((l) => { popularity[l.name] = (popularity[l.name] || 0) + l.qty; }));
-  const topItems = Object.entries(popularity).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const ranked = Object.entries(popularity).sort((a, b) => b[1] - a[1]);
+  const topItems = ranked.slice(0, 6);
+
+  function exportCsv() {
+    const byDay = {};
+    active.forEach((o) => {
+      const d = new Date(o.placedAt).toISOString().slice(0, 10);
+      if (!byDay[d]) byDay[d] = { orders: 0, sales: 0 };
+      byDay[d].orders++;
+      byDay[d].sales += o.total;
+    });
+    const rows = [
+      ["Hello Sushi — overview", new Date().toLocaleString()],
+      [],
+      ["Metric", "Value"],
+      ...stats.map((s) => [s.label, s.value]),
+      [],
+      ["Sales by day", "Orders", "Sales"],
+      ...Object.keys(byDay).sort().map((d) => [d, byDay[d].orders, byDay[d].sales.toFixed(2)]),
+      [],
+      ["Dish", "Qty sold"],
+      ...ranked.map(([n, q]) => [n, q]),
+    ];
+    downloadCsv(`hello-sushi-overview-${csvStamp()}.csv`, rows);
+  }
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <ExportButton onClick={exportCsv} disabled={!orders.length && !reservations.length} />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 24 }}>
         {stats.map((s) => (
           <div key={s.label} style={cardStyle}>
@@ -3030,6 +3107,32 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteO
 
   const detailOrder = orders.find((o) => o.id === detail);
 
+  function exportCsv() {
+    const header = ["Order #", "Placed", "Scheduled for", "Status", "Type", "Table", "Name", "Phone", "Email", "Items", "Item count", "Subtotal", "Tax", "Service", "Delivery", "Discount", "Total", "Payment", "Instructions"];
+    const rows = filtered.map((o) => [
+      o.orderNumber,
+      fmtDateTime(o.placedAt),
+      o.scheduledFor ? fmtDateTime(o.scheduledFor) : "",
+      o.status,
+      o.orderType,
+      o.table || "",
+      o.name || "",
+      o.phone || "",
+      o.email || "",
+      itemsSummary(o.items),
+      (o.items || []).reduce((s, l) => s + l.qty, 0),
+      Number(o.subtotal || 0).toFixed(2),
+      Number(o.tax || 0).toFixed(2),
+      Number(o.service || 0).toFixed(2),
+      Number(o.deliveryFee || 0).toFixed(2),
+      Number(o.discount || 0).toFixed(2),
+      Number(o.total || 0).toFixed(2),
+      o.payment || "",
+      o.instructions || "",
+    ]);
+    downloadCsv(`hello-sushi-orders-${csvStamp()}.csv`, [header, ...rows]);
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
@@ -3038,6 +3141,7 @@ function OrdersTab({ orders, advanceStatus, setOrderStatus, cancelOrder, deleteO
           {["All", ...STAFF_STATUSES, "Cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <span style={{ flex: 1 }} />
+        <ExportButton onClick={exportCsv} disabled={!filtered.length} count={filtered.length} />
         <button
           className="sn-btn"
           onClick={clearHistory}
@@ -3238,6 +3342,15 @@ function ReservationsTab({ reservations, updateReservation, deleteReservation, c
     Completed: [], Cancelled: [["Confirmed", "Reopen"]], Rejected: [["Confirmed", "Reopen"]],
   };
 
+  function exportCsv() {
+    const header = ["Name", "Phone", "Email", "Date", "Time", "Guests", "Status", "Request", "Requested at"];
+    const rows = list.map((r) => [
+      r.name || "", r.phone || "", r.email || "", r.date || "", r.time || "",
+      r.guests || "", r.status, r.request || "", fmtDateTime(r.createdAt),
+    ]);
+    downloadCsv(`hello-sushi-reservations-${csvStamp()}.csv`, [header, ...rows]);
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
@@ -3248,6 +3361,7 @@ function ReservationsTab({ reservations, updateReservation, deleteReservation, c
         <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ ...adminInput, maxWidth: 160 }} />
         {dateFilter && <button className="sn-btn" onClick={() => setDateFilter("")} style={{ ...adminInput, maxWidth: 70, cursor: "pointer" }}>Clear</button>}
         <span style={{ flex: 1 }} />
+        <ExportButton onClick={exportCsv} disabled={!list.length} count={list.length} />
         <button
           className="sn-btn"
           onClick={clearDone}
@@ -3295,6 +3409,23 @@ function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, del
   const [editing, setEditing] = useState(null);
   const [catFilter, setCatFilter] = useState("All");
   const list = catFilter === "All" ? menuItems : menuItems.filter((i) => i.category === catFilter);
+  const catName = (id) => { const c = categories.find((x) => x.id === id); return c ? c.en : id; };
+
+  function exportCsv() {
+    const header = ["Item", "Category", "Price", "Availability", "Popular", "Vegetarian", "Spicy", "Allergens", "Description"];
+    const rows = list.map((i) => [
+      i.en || "",
+      catName(i.category),
+      Number(i.price || 0).toFixed(2),
+      i.available === false ? "Sold out" : "Available",
+      i.popular ? "Yes" : "",
+      i.veg ? "Yes" : "",
+      i.spicy ? "Yes" : "",
+      (i.allergens || []).join(", "),
+      i.descEn || i.desc || "",
+    ]);
+    downloadCsv(`hello-sushi-menu-${csvStamp()}.csv`, [header, ...rows]);
+  }
 
   return (
     <div>
@@ -3303,6 +3434,8 @@ function MenuManageTab({ menuItems, categories, toggleSoldOut, saveMenuItem, del
           <option value="All">All categories</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.en}</option>)}
         </select>
+        <span style={{ flex: 1 }} />
+        <ExportButton onClick={exportCsv} disabled={!list.length} count={list.length} />
         <button className="sn-btn" onClick={() => setEditing(BLANK_ITEM())} style={{ background: "var(--wine)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
           <Plus size={14} /> Add menu item
         </button>
@@ -3767,9 +3900,22 @@ function CustomersTab({ orders, reservations }) {
     return !s || c.name.toLowerCase().includes(s) || c.phone.includes(s) || c.email.toLowerCase().includes(s);
   });
 
+  function exportCsv() {
+    const header = ["Customer", "Phone", "Email", "Orders", "Total spent", "Bookings", "Last activity"];
+    const rows = list.map((c) => [
+      c.name, c.phone === "—" ? "" : c.phone, c.email || "",
+      c.visits, Number(c.spent || 0).toFixed(2), c.reservations || 0, fmtDateTime(c.last),
+    ]);
+    downloadCsv(`hello-sushi-customers-${csvStamp()}.csv`, [header, ...rows]);
+  }
+
   return (
     <div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customers" style={{ ...adminInput, maxWidth: 260, marginBottom: 14 }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customers" style={{ ...adminInput, maxWidth: 260 }} />
+        <span style={{ flex: 1 }} />
+        <ExportButton onClick={exportCsv} disabled={!list.length} count={list.length} />
+      </div>
       <div style={{ background: "var(--charcoal-2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 80px 90px 90px", gap: 8, padding: "10px 14px", fontSize: 11, color: "rgba(255,255,255,0.5)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
           <span>Customer</span><span>Phone</span><span>Orders</span><span>Spent</span><span>Bookings</span>
