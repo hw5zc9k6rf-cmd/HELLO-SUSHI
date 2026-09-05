@@ -1454,9 +1454,16 @@ function HomeScreen({ t, lang, settings, content, menuItems, cats, reviews, canO
         <SectionLabel icon={<Star size={13} />} text={t.whyUs} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {highlights.map((h, i) => (
-            <div key={i} style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
-              <span style={{ fontSize: 22 }}>{h.icon}</span>
-              <p style={{ fontSize: 12, fontWeight: 700, margin: "6px 0 0", lineHeight: 1.35 }}>{h.text || h.en}</p>
+            <div key={i} style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
+              {h.image && (
+                <div style={{ height: 76, background: "var(--paper-dim)", position: "relative", overflow: "hidden" }}>
+                  <FoodMedia image={h.image} icon={h.icon} alt={h.text || h.en} />
+                </div>
+              )}
+              <div style={{ padding: "12px 14px" }}>
+                {!h.image && <span style={{ fontSize: 22 }}>{h.icon}</span>}
+                <p style={{ fontSize: 12, fontWeight: 700, margin: h.image ? 0 : "6px 0 0", lineHeight: 1.35 }}>{h.text || h.en}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -4160,6 +4167,7 @@ function ContentSection({ title, children }) {
 function ContentTab({ content, setContent, menuItems }) {
   const [f, setF] = useState({ ...DEFAULT_CONTENT, ...content, highlights: (content.highlights || []).map((h) => ({ ...h })), reviews: (content.reviews || []).map((r) => ({ ...r })), popularPickIds: [...(content.popularPickIds || [])] });
   const [saved, setSaved] = useState(false);
+  const [hlBusy, setHlBusy] = useState(-1);
   const set = (k, v) => { setF((p) => ({ ...p, [k]: v })); setSaved(false); };
   const L = { fontSize: 11, color: "rgba(255,255,255,0.55)", margin: "10px 0 4px", fontWeight: 600 };
   const en = T.en;
@@ -4167,6 +4175,25 @@ function ContentTab({ content, setContent, menuItems }) {
   const setList = (key, i, patch) => set(key, f[key].map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const addTo = (key, blank) => set(key, [...f[key], blank]);
   const removeFrom = (key, i) => set(key, f[key].filter((_, j) => j !== i));
+
+  async function pickHighlightPhoto(i, e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    const prev = f.highlights[i] && f.highlights[i].image;
+    setHlBusy(i);
+    try {
+      const url = await uploadPhoto(file, "highlights");
+      setList("highlights", i, { image: url });
+      storageDelete(prev);
+    } catch { /* keep the emoji */ } finally {
+      setHlBusy(-1);
+    }
+  }
+  function removeHighlightPhoto(i) {
+    storageDelete(f.highlights[i] && f.highlights[i].image);
+    setList("highlights", i, { image: "" });
+  }
 
   const pickable = menuItems;
   const togglePop = (id) => set("popularPickIds", f.popularPickIds.includes(id) ? f.popularPickIds.filter((x) => x !== id) : [...f.popularPickIds, id]);
@@ -4209,13 +4236,28 @@ function ContentTab({ content, setContent, menuItems }) {
 
       <ContentSection title="Highlights (“Why guests love us”)">
         {f.highlights.map((h, i) => (
-          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <input value={h.icon} onChange={(e) => setList("highlights", i, { icon: e.target.value })} style={{ ...adminInput, width: 54, textAlign: "center", fontSize: 18 }} />
-            <input value={h.text || ""} onChange={(e) => setList("highlights", i, { text: e.target.value })} style={adminInput} />
-            <button className="sn-btn" onClick={() => removeFrom("highlights", i)} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "0 10px" }}><Trash2 size={13} /></button>
+          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 9, flexShrink: 0, background: "var(--charcoal-3)", border: "1px dashed rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, position: "relative", overflow: "hidden" }}>
+              <FoodMedia image={h.image} icon={h.icon} alt={h.text} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={h.icon} onChange={(e) => setList("highlights", i, { icon: e.target.value })} style={{ ...adminInput, width: 48, textAlign: "center", fontSize: 18 }} />
+                <input value={h.text || ""} placeholder="Highlight text" onChange={(e) => setList("highlights", i, { text: e.target.value })} style={adminInput} />
+                <button className="sn-btn" onClick={() => removeFrom("highlights", i)} title="Remove highlight" style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 8, padding: "0 10px" }}><Trash2 size={13} /></button>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <label className="sn-btn" style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--charcoal-3)", color: "rgba(255,255,255,0.8)", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  <Plus size={11} /> {hlBusy === i ? "Loading…" : h.image ? "Replace photo" : "Add photo"}
+                  <input type="file" accept="image/*" onChange={(e) => pickHighlightPhoto(i, e)} style={{ display: "none" }} />
+                </label>
+                {h.image && <button className="sn-btn" onClick={() => removeHighlightPhoto(i)} style={{ background: "var(--charcoal-3)", color: "#F0A5A8", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 700 }}>Remove photo</button>}
+              </div>
+            </div>
           </div>
         ))}
-        <button className="sn-btn" onClick={() => addTo("highlights", { icon: "✨", text: "" })} style={{ fontSize: 11.5, fontWeight: 700, background: "var(--charcoal-3)", color: "rgba(255,255,255,0.75)", borderRadius: 8, padding: "7px 12px", display: "flex", alignItems: "center", gap: 5 }}><Plus size={13} /> Add highlight</button>
+        <button className="sn-btn" onClick={() => addTo("highlights", { icon: "✨", text: "", image: "" })} style={{ fontSize: 11.5, fontWeight: 700, background: "var(--charcoal-3)", color: "rgba(255,255,255,0.75)", borderRadius: 8, padding: "7px 12px", display: "flex", alignItems: "center", gap: 5 }}><Plus size={13} /> Add highlight</button>
+        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", margin: "6px 0 0" }}>A photo shows as a banner on the highlight card. No photo → the emoji is shown.</p>
       </ContentSection>
 
       <ContentSection title="Testimonials">
